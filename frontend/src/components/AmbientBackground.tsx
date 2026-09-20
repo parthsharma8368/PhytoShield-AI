@@ -1,25 +1,18 @@
 import React, { memo } from 'react';
 
 /**
- * AmbientBackground — Dynamic living atmosphere layer for Glassmorphism UI.
+ * AmbientBackground — Minimalist, low-noise studio atmosphere.
  *
- * Renders multiple GPU-accelerated blurred light orbs that slowly and organically
- * drift behind frosted glass panels, producing optical depth and subtle refraction
- * in both dark and light modes.
+ * Replaces noisy drifting colored orbs with a calm, high-precision technical dot matrix
+ * and subtle ambient vignette engineered for clinical and scientific clarity.
  */
 export const AmbientBackground: React.FC = memo(() => {
   return (
     <div className="ambient-background-mesh" aria-hidden="true">
-      {/* Orb 1 — Botanical Emerald / Mint Core */}
-      <div className="ambient-orb orb-1" />
-      {/* Orb 2 — Azure / Cyan Core */}
-      <div className="ambient-orb orb-2" />
-      {/* Orb 3 — Violet / Indigo Depth Core */}
-      <div className="ambient-orb orb-3" />
-      {/* Orb 4 — Teal / Sapphire Accent Node */}
-      <div className="ambient-orb orb-4" />
-      {/* Ambient Diffusion Veil */}
-      <div className="ambient-diffusion-veil" />
+      {/* Precision Micro-Dot Matrix */}
+      <div className="ambient-dot-grid" />
+      {/* Subtle Top Zenith Vignette */}
+      <div className="ambient-zenith-glow" />
     </div>
   );
 });

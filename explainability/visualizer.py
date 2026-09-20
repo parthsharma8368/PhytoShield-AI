@@ -22,6 +22,7 @@ def overlay_heatmap_on_image(
     heatmap: np.ndarray,
     alpha: float = 0.5,
     colormap: int = cv2.COLORMAP_JET,
+    max_dimension: int = 512,
 ) -> Image.Image:
     """Overlays a normalized Grad-CAM heatmap onto the original image.
 
@@ -30,6 +31,7 @@ def overlay_heatmap_on_image(
         heatmap: 2D float NumPy array in range [0, 1].
         alpha: Transparency blending factor for the heatmap (0.0 to 1.0).
         colormap: OpenCV colormap constant (default: COLORMAP_JET).
+        max_dimension: Maximum dimension for display rendering to minimize payload.
 
     Returns:
         Image.Image: Blended RGB PIL Image.
@@ -37,12 +39,18 @@ def overlay_heatmap_on_image(
     if original_image.mode != "RGB":
         original_image = original_image.convert("RGB")
 
+    w, h = original_image.size
+    if max(w, h) > max_dimension:
+        scale = max_dimension / max(w, h)
+        new_w, new_h = int(round(w * scale)), int(round(h * scale))
+        original_image = original_image.resize((new_w, new_h), Image.Resampling.BILINEAR)
+
     orig_np = np.array(original_image)
     h, w, _ = orig_np.shape
 
     # Resize heatmap to match image dimensions
-    heatmap_resized = cv2.resize(heatmap, (w, h))
-    heatmap_uint8 = np.uint8(255 * heatmap_resized)
+    heatmap_resized = cv2.resize(heatmap, (w, h), interpolation=cv2.INTER_LINEAR)
+    heatmap_uint8 = np.uint8(255 * np.clip(heatmap_resized, 0.0, 1.0))
 
     # Apply colormap
     color_heatmap = cv2.applyColorMap(heatmap_uint8, colormap)
@@ -55,19 +63,36 @@ def overlay_heatmap_on_image(
     return Image.fromarray(blended)
 
 
-def encode_image_to_base64(image: Image.Image) -> str:
-    """Encodes a PIL Image into a base64 PNG data string.
+def encode_image_to_base64(image: Image.Image, format: str = "JPEG", quality: int = 88) -> str:
+    """Encodes a PIL Image into an optimized base64 data string.
 
     Args:
         image: PIL Image object.
+        format: Image format ('JPEG' or 'PNG'). Default: 'JPEG'.
+        quality: Compression quality for JPEG (0-100). Default: 88.
 
     Returns:
-        str: Base64 data URL string (data:image/png;base64,...).
+        str: Base64 data URL string (e.g. data:image/jpeg;base64,...).
     """
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+
+    w, h = image.size
+    if max(w, h) > 512:
+        scale = 512 / max(w, h)
+        new_w, new_h = int(round(w * scale)), int(round(h * scale))
+        image = image.resize((new_w, new_h), Image.Resampling.BILINEAR)
+
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
+    if format.upper() == "PNG":
+        image.save(buffer, format="PNG", optimize=True)
+        mime = "image/png"
+    else:
+        image.save(buffer, format="JPEG", quality=quality, optimize=True)
+        mime = "image/jpeg"
+
     b64_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-    return f"data:image/png;base64,{b64_str}"
+    return f"data:{mime};base64,{b64_str}"
 
 
 def encode_all_heatmaps(

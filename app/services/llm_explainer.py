@@ -257,6 +257,22 @@ def normalize_method_key(xai_method: str) -> str:
     return "all"
 
 
+def _clean_json_text(raw_text: str) -> str:
+    """Strips markdown code fences (```json ... ```) from LLM output before json parsing."""
+    text = raw_text.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    return text
+
+
+DEFAULT_GROQ_MODEL = "groq/compound-mini"
+
+
 def get_xai_specific_explanation(
     class_name: str,
     confidence: float,
@@ -322,13 +338,12 @@ def get_xai_specific_explanation(
         ),
     }
 
-
     specific_guidance = method_prompts.get(method_key, method_prompts["all"])
 
     if GROQ_AVAILABLE and groq_api_key:
         try:
             logger.info("Querying Groq LLM for method-specific XAI insight [%s] on '%s'...", method_key, disease_title)
-            client = Groq(api_key=groq_api_key)
+            client = Groq(api_key=groq_api_key, timeout=4.0)
             
             prompt = (
                 f"You are an expert agricultural plant pathologist and Explainable AI (XAI) computer vision researcher.\n\n"
@@ -349,13 +364,14 @@ def get_xai_specific_explanation(
             )
 
             completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=DEFAULT_GROQ_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
                 response_format={"type": "json_object"},
             )
 
-            response_json = json.loads(completion.choices[0].message.content)
+            cleaned_text = _clean_json_text(completion.choices[0].message.content or "{}")
+            response_json = json.loads(cleaned_text)
             raw_explanation = response_json.get("explanation", fallback_info["text"])
 
             if isinstance(raw_explanation, dict):
@@ -384,7 +400,7 @@ def get_xai_specific_explanation(
             }
 
         except Exception as exc:
-            logger.error("Groq API query for method-specific XAI failed: %s. Using fallback.", exc)
+            logger.warning("Groq API query for method-specific XAI notice: %s. Using fallback.", exc)
 
     return {
         "xai_method": method_key,
@@ -417,25 +433,21 @@ def get_disease_explanation(
     disease_title = clean_class_name(class_name)
     groq_api_key = api_key or os.getenv("GROQ_API_KEY")
 
-    # Get method-specific XAI explanation
-    xai_data = get_xai_specific_explanation(
-        class_name=class_name,
-        confidence=confidence,
-        xai_method=xai_method,
-        api_key=groq_api_key,
-    )
+    key = class_name.lower()
+    fallback_data = FALLBACK_KNOWLEDGE_BASE.get(key, FALLBACK_KNOWLEDGE_BASE["default"])
 
     if GROQ_AVAILABLE and groq_api_key:
         try:
-            logger.info("Querying Groq LLM for pathology guidance on '%s'...", disease_title)
-            client = Groq(api_key=groq_api_key)
+            logger.info("Querying Groq LLM for unified pathology & XAI guidance on '%s'...", disease_title)
+            client = Groq(api_key=groq_api_key, timeout=4.0)
             
             prompt = (
-                f"You are an expert agricultural botanist and plant pathologist.\n"
-                f"A plant leaf was diagnosed with: '{disease_title}' (Raw Model Class: '{class_name}', Confidence: {confidence:.1f}%).\n\n"
-                f"Provide a structured JSON response with EXACTLY the following keys:\n"
+                f"You are an expert agricultural botanist, plant pathologist, and Explainable AI (XAI) researcher.\n"
+                f"A leaf image was analyzed and diagnosed with: '{disease_title}' (Class: '{class_name}', Confidence: {confidence:.1f}%).\n\n"
+                f"Provide a concise, accurate JSON response with EXACTLY the following keys:\n"
                 f"{{\n"
-                f'  "explanation": "Detailed 2-3 sentence scientific explanation of the disease and its biological pathology.",\n'
+                f'  "explanation": "2-3 sentence scientific explanation of the disease pathology.",\n'
+                f'  "xai_feature_explanation": "2-3 sentences explaining how visual attribution heatmaps (Grad-CAM++, SHAP, LIME) identify key foliar lesions, chlorosis, and textural anomalies.",\n'
                 f'  "cure": "2-3 recommended organic and chemical treatment methods.",\n'
                 f'  "prevention": "2-3 long-term agricultural prevention strategies.",\n'
                 f'  "precautions": "2-3 immediate precautions to avoid spreading infection."\n'
@@ -444,33 +456,30 @@ def get_disease_explanation(
             )
 
             completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=DEFAULT_GROQ_MODEL,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
+                temperature=0.2,
                 response_format={"type": "json_object"},
             )
 
-            response_json = json.loads(completion.choices[0].message.content)
+            cleaned_content = _clean_json_text(completion.choices[0].message.content or "{}")
+            response_json = json.loads(cleaned_content)
             return {
                 "disease_title": disease_title,
-                "explanation": _ensure_str(response_json.get("explanation"), "Detailed scientific explanation."),
-                "xai_feature_explanation": _ensure_str(xai_data["explanation"], "Attribution features verified."),
-                "cure": _ensure_str(response_json.get("cure"), "Recommended organic and chemical treatments."),
-                "prevention": _ensure_str(response_json.get("prevention"), "Long-term agricultural prevention strategies."),
-                "precautions": _ensure_str(response_json.get("precautions"), "Immediate agricultural precautions."),
+                "explanation": _ensure_str(response_json.get("explanation"), fallback_data["explanation"]),
+                "xai_feature_explanation": _ensure_str(response_json.get("xai_feature_explanation"), fallback_data["xai_feature_explanation"]),
+                "cure": _ensure_str(response_json.get("cure"), fallback_data["cure"]),
+                "prevention": _ensure_str(response_json.get("prevention"), fallback_data["prevention"]),
+                "precautions": _ensure_str(response_json.get("precautions"), fallback_data["precautions"]),
             }
 
         except Exception as exc:
-            logger.error("Groq API query failed: %s. Falling back to knowledge base.", exc)
+            logger.warning("Groq API unified query notice: %s. Falling back to knowledge base.", exc)
 
-    # Fallback execution
-    key = class_name.lower()
-    fallback_data = FALLBACK_KNOWLEDGE_BASE.get(key, FALLBACK_KNOWLEDGE_BASE["default"])
-    
     return {
         "disease_title": disease_title,
         "explanation": fallback_data["explanation"],
-        "xai_feature_explanation": _ensure_str(xai_data["explanation"]),
+        "xai_feature_explanation": fallback_data["xai_feature_explanation"],
         "cure": fallback_data["cure"],
         "prevention": fallback_data["prevention"],
         "precautions": fallback_data["precautions"],

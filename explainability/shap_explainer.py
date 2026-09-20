@@ -40,7 +40,6 @@ class SHAPExplainer:
             np.ndarray: Normalized 2D heatmap matrix of shape (H, W).
         """
         self.model.eval()
-        device = input_tensor.device
         _, _, h, w = input_tensor.shape
 
         if target_class_idx is None:
@@ -48,32 +47,34 @@ class SHAPExplainer:
                 logits = self.model(input_tensor)
                 target_class_idx = int(logits.argmax(dim=1).item())
 
-        with torch.no_grad():
-            baseline_prob = float(
-                torch.softmax(self.model(input_tensor), dim=1)[0, target_class_idx].item()
-            )
-
         patch_h = h // self.grid_size
         patch_w = w // self.grid_size
-        heatmap = np.zeros((h, w), dtype=np.float32)
+        n_patches = self.grid_size * self.grid_size
 
-        # Compute occlusion drop for each grid patch
+        # Build one batch: index 0 is the unmasked baseline, followed by one
+        # occluded variant per grid patch. A single batched forward pass replaces
+        # what used to be `n_patches + 1` sequential single-image forward passes.
+        batch = input_tensor.repeat(n_patches + 1, 1, 1, 1).clone()
+        patch_bounds: list[tuple[int, int, int, int]] = []
         for i in range(self.grid_size):
             for j in range(self.grid_size):
-                masked_tensor = input_tensor.clone()
                 r_start, r_end = i * patch_h, (i + 1) * patch_h
                 c_start, c_end = j * patch_w, (j + 1) * patch_w
+                batch_idx = 1 + i * self.grid_size + j
+                batch[batch_idx, :, r_start:r_end, c_start:c_end] = 0.0
+                patch_bounds.append((r_start, r_end, c_start, c_end))
 
-                masked_tensor[:, :, r_start:r_end, c_start:c_end] = 0.0
+        with torch.no_grad():
+            probs = torch.softmax(self.model(batch), dim=1)[:, target_class_idx]
 
-                with torch.no_grad():
-                    prob = float(
-                        torch.softmax(self.model(masked_tensor), dim=1)[0, target_class_idx].item()
-                    )
+        baseline_prob = float(probs[0].item())
+        occluded_probs = probs[1:].tolist()
 
-                # Importance is drop in target class confidence when region is occluded
-                importance = max(0.0, baseline_prob - prob)
-                heatmap[r_start:r_end, c_start:c_end] = importance
+        heatmap = np.zeros((h, w), dtype=np.float32)
+        for (r_start, r_end, c_start, c_end), prob in zip(patch_bounds, occluded_probs):
+            # Importance is drop in target class confidence when region is occluded
+            importance = max(0.0, baseline_prob - prob)
+            heatmap[r_start:r_end, c_start:c_end] = importance
 
         # Normalize to [0, 1] range
         h_min, h_max = heatmap.min(), heatmap.max()

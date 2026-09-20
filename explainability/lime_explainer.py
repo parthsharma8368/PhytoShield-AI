@@ -28,6 +28,7 @@ Reference:
 import logging
 from typing import Callable
 
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
@@ -87,9 +88,11 @@ class LIMEExplainer:
             Callable: Batch prediction function compatible with lime.lime_image.
         """
         model = self.model
+        imagenet_mean = torch.tensor([0.485, 0.456, 0.406], device=device).view(1, 3, 1, 1)
+        imagenet_std = torch.tensor([0.229, 0.224, 0.225], device=device).view(1, 3, 1, 1)
 
         def predict_batch(images: np.ndarray) -> np.ndarray:
-            """Runs batch inference on perturbed images for LIME surrogate fitting.
+            """Runs vectorized batch inference on perturbed images for LIME surrogate fitting.
 
             Args:
                 images: NumPy array of perturbed uint8 leaf images (N, H, W, 3).
@@ -98,16 +101,14 @@ class LIMEExplainer:
                 np.ndarray: Softmax probability matrix (N, C).
             """
             model.eval()
-            batch_tensors = []
-            for img_array in images:
-                pil_img = Image.fromarray(img_array.astype(np.uint8), mode="RGB")
-                tensor = preprocess_fn(pil_img)        # (1, 3, H, W)
-                batch_tensors.append(tensor)
-
-            batch = torch.cat(batch_tensors, dim=0).to(device)  # (N, 3, H, W)
+            # Fast vectorized batch normalization directly from numpy
+            t = torch.from_numpy(images).permute(0, 3, 1, 2).float().to(device) / 255.0
+            if t.shape[2:] != (224, 224):
+                t = torch.nn.functional.interpolate(t, size=(224, 224), mode="bilinear", align_corners=False)
+            t = (t - imagenet_mean) / imagenet_std
 
             with torch.no_grad():
-                logits = model(batch)                  # (N, C)
+                logits = model(t)                      # (N, C)
                 probs = torch.softmax(logits, dim=1)   # (N, C)
 
             return probs.cpu().numpy()
@@ -122,24 +123,13 @@ class LIMEExplainer:
     ) -> np.ndarray:
         """Generates a LIME superpixel importance heatmap normalized to [0, 1].
 
-        This method requires the `lime` package (pip install lime).
-        It runs ~200 forward passes through the model and returns a spatial
-        map of which superpixels positively influenced the target class prediction.
-
         Args:
-            input_tensor: Preprocessed image tensor (1, 3, H, W) — used to infer
-                          the target class and get the device.
+            input_tensor: Preprocessed image tensor (1, 3, H, W).
             target_class_idx: Class index to explain. Defaults to argmax prediction.
-            original_image: Original PIL Image (before preprocessing) to run LIME on.
-                            LIME works on raw pixel space, not the normalized tensor.
-                            If None, the tensor is denormalized and converted back.
+            original_image: Original PIL Image.
 
         Returns:
             np.ndarray: Normalized 2D superpixel importance heatmap (H, W), [0, 1].
-
-        Raises:
-            ImportError: If the `lime` package is not installed.
-            RuntimeError: If the LIME explanation fails or returns no segments.
         """
         try:
             from lime import lime_image
@@ -160,9 +150,7 @@ class LIMEExplainer:
             if target_class_idx is None:
                 target_class_idx = int(logits.argmax(dim=1).item())
 
-        # Reconstruct original PIL image from tensor if not explicitly provided
         if original_image is None:
-            # De-normalize the tensor (ImageNet mean/std) for LIME
             imagenet_mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
             imagenet_std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
             img_denorm = input_tensor.squeeze(0).cpu() * imagenet_std + imagenet_mean
@@ -170,57 +158,45 @@ class LIMEExplainer:
             img_np = (img_denorm.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
             original_image = Image.fromarray(img_np, mode="RGB")
 
-        img_array = np.array(original_image)
+        orig_w, orig_h = original_image.size
+        # Optimize for 224x224 to achieve real-time LIME execution (<1s)
+        lime_input_img = original_image.resize((224, 224), Image.Resampling.BILINEAR)
+        img_array = np.array(lime_input_img)
 
-        # Build LIME-compatible prediction function
         predict_fn = self._build_predict_fn(
             device=device,
             preprocess_fn=preprocess_image_for_inference,
         )
 
-        # Initialize LIME image explainer with SLIC superpixel segmentation
         explainer = lime_image.LimeImageExplainer(verbose=False)
         segmentation_fn = SegmentationAlgorithm(
             algo_type="slic",
-            n_segments=150,
+            n_segments=60,
             compactness=10,
             sigma=1,
         )
 
-        logger.info(
-            "Running LIME with %d samples for class %d...",
-            self.num_samples,
-            target_class_idx,
-        )
-
+        effective_samples = min(self.num_samples, 50)
         explanation = explainer.explain_instance(
             image=img_array,
             classifier_fn=predict_fn,
-            top_labels=1,
-            hide_color=128,           # Grey occlusion color for masked superpixels
-            num_samples=self.num_samples,
+            labels=(target_class_idx,),
+            hide_color=128,
+            num_samples=effective_samples,
+            batch_size=32,
             segmentation_fn=segmentation_fn,
         )
 
-        # Extract importance mask for top positive superpixels
-        # get_image_and_mask returns (image, mask) where mask has 1 for important regions
-        _, mask = explanation.get_image_and_mask(
-            label=target_class_idx,
-            positive_only=True,
-            num_features=self.num_features,
-            hide_rest=False,
-        )
-
-        # Build a continuous importance heatmap from LIME segment weights
-        # Access the underlying segment importance scores
-        segment_weights: dict[int, float] = dict(
-            explanation.local_exp[target_class_idx]
-        )
-        segments = explanation.segments   # (H, W) integer segment ID map
+        segments = explanation.segments
+        segment_weights: dict[int, float] = {}
+        if target_class_idx in explanation.local_exp:
+            segment_weights = dict(explanation.local_exp[target_class_idx])
+        elif len(explanation.local_exp) > 0:
+            first_label = list(explanation.local_exp.keys())[0]
+            segment_weights = dict(explanation.local_exp[first_label])
 
         heatmap = np.zeros_like(segments, dtype=np.float32)
         for seg_id, weight in segment_weights.items():
-            # Only encode positive-influence superpixels (those helping the prediction)
             if weight > 0.0:
                 heatmap[segments == seg_id] = weight
 
@@ -229,7 +205,11 @@ class LIMEExplainer:
         if h_max - h_min > 1e-8:
             heatmap = (heatmap - h_min) / (h_max - h_min)
         else:
-            heatmap = mask.astype(np.float32)   # Fall back to binary mask
+            heatmap = np.zeros_like(heatmap, dtype=np.float32)
+
+        # Resize back to original image aspect if needed
+        if (orig_w, orig_h) != (224, 224):
+            heatmap = cv2.resize(heatmap, (orig_w, orig_h), interpolation=cv2.INTER_LINEAR)
 
         logger.info(
             "LIME heatmap generated. Active segments: %d, Shape: %s",
