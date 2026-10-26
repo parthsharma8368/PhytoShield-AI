@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { ShieldAlert, Check } from 'lucide-react';
 import type { DecisionSupportItem } from './types';
 
@@ -21,7 +22,7 @@ export default function DecisionSupportCard({ decision }: { decision: DecisionSu
       <div className="neo-decision-head">
         <div className="neo-decision-title">
           <ShieldAlert size={18} color={staging?.color || '#00b87c'} />
-          <span>Foliar Staging & Agronomist Decision-Support</span>
+          <span>How Severe Is It?</span>
         </div>
         {staging && (
           <div
@@ -41,18 +42,20 @@ export default function DecisionSupportCard({ decision }: { decision: DecisionSu
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-              Foliar Necrosis / Lesion Area
+              Leaf Damage (measured from colour)
             </span>
             <span style={{ fontSize: '0.95rem', fontWeight: 800, color: staging?.color || '#00b87c', fontFamily: "'JetBrains Mono', monospace" }}>
-              {(decision.affected_leaf_percentage ?? 0).toFixed(1)}% of Leaf
+              {decision.affected_leaf_percentage == null ? 'Not measurable' : `${decision.affected_leaf_percentage.toFixed(1)}% of the leaf`}
             </span>
           </div>
 
           <div className="neo-bar-track" style={{ height: 8, marginBottom: 20 }}>
-            <div
+            <motion.div
               className="neo-bar-fill"
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, decision.affected_leaf_percentage ?? 0)}%` }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
               style={{
-                width: `${Math.min(100, decision.affected_leaf_percentage ?? 0)}%`,
                 background: staging?.color || '#00b87c',
                 boxShadow: `0 0 10px ${(staging?.color || '#00b87c')}60`,
               }}
@@ -61,10 +64,10 @@ export default function DecisionSupportCard({ decision }: { decision: DecisionSu
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-              Agronomist Validation Checklist
+              Quick Checks
             </span>
             <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#00b87c' }}>
-              {passedChecks}/{totalChecks} Criteria Verified ({validationPct}%)
+              {passedChecks}/{totalChecks} passed ({validationPct}%)
             </span>
           </div>
 
@@ -92,13 +95,13 @@ export default function DecisionSupportCard({ decision }: { decision: DecisionSu
 
         <div>
           <div style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12 }}>
-            Actionable Precision Triage Protocols
+            What to Do About It
           </div>
 
           <div className="neo-triage-list">
             {triageActions.map((actionText, idx) => {
               const priority = idx + 1;
-              const category = priority === 1 ? 'Curative Intervention' : priority === 2 ? 'Spread Isolation' : 'Sanitation & Prevention';
+              const category = priority === 1 ? 'Treat It Now' : priority === 2 ? 'Stop It Spreading' : 'Clean Up & Prevent';
               return (
                 <div key={idx} className={`neo-triage-item priority-${priority}`}>
                   <div style={{ flex: 1 }}>
@@ -117,7 +120,7 @@ export default function DecisionSupportCard({ decision }: { decision: DecisionSu
                       {actionText}
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                      {staging?.urgency || 'Field agronomist standard procedure.'}
+                      {staging?.urgency || 'Standard recommended action.'}
                     </div>
                   </div>
                 </div>

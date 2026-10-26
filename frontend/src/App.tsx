@@ -6,8 +6,8 @@ import HomePage from './pages/Home';
 import AnalyzePage from './pages/Analyze';
 import BenchmarksPage from './pages/Benchmarks';
 import TelemetryPage from './pages/Telemetry';
-import DesignSystemPage from './pages/DesignSystem';
 import AmbientBackground from './components/AmbientBackground';
+import { HEADLINE } from './generated/metrics';
 
 const API_BASE = 'http://localhost:8001/api';
 
@@ -78,7 +78,7 @@ function Nav({
           {apiOnline !== null && (
             <div className={`api-status-badge ${apiOnline ? 'on' : 'off'}`}>
               <span className="api-dot" />
-              <span>{apiOnline ? 'EfficientNet-B0 · 99.48%' : 'Engine Offline'}</span>
+              <span>{apiOnline ? `EfficientNet-B0 · ${HEADLINE.accuracy}` : 'Engine Offline'}</span>
             </div>
           )}
 
@@ -86,7 +86,7 @@ function Nav({
           {showPrint ? (
             <button className="btn-try btn-export-report" onClick={() => window.print()}>
               <Printer size={13} />
-              <span>Export Dossier</span>
+              <span>Export Report</span>
             </button>
           ) : (
             <button className="btn-try" onClick={() => navigate('/analyze')}>
@@ -178,7 +178,6 @@ function AppInner() {
               <Route path="/benchmarks"    element={<BenchmarksPage />} />
               <Route path="/model"         element={<BenchmarksPage />} />
               <Route path="/telemetry"     element={<TelemetryPage />} />
-              <Route path="/design-system" element={<DesignSystemPage />} />
               <Route path="*"              element={<HomePage />} />
             </Routes>
           </motion.div>

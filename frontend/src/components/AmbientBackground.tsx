@@ -13,6 +13,9 @@ export const AmbientBackground: React.FC = memo(() => {
       <div className="ambient-dot-grid" />
       {/* Subtle Top Zenith Vignette */}
       <div className="ambient-zenith-glow" />
+      {/* Slow-drifting ambient glow orbs for depth */}
+      <div className="ambient-orb ambient-orb-a" />
+      <div className="ambient-orb ambient-orb-b" />
     </div>
   );
 });

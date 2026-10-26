@@ -57,6 +57,7 @@ from api.schemas import (
 
 from app.services.llm_explainer import clean_class_name, get_disease_explanation, get_xai_specific_explanation
 from evaluation.decision_support import generate_decision_support_summary
+from evaluation.calibration import load_temperature
 from evaluation.model_benchmarks import generate_benchmarking_report
 from evaluation.trustworthiness import compute_mc_dropout_uncertainty, generate_trustworthiness_report
 from explainability.concept_explainer import BotanicalConceptExplainer
@@ -79,6 +80,7 @@ router = APIRouter()
 MODEL: torch.nn.Module | None = None
 CLASS_MAPPING: dict[str, int] = {}
 IDX_TO_CLASS: dict[int, str] = {}
+TEMPERATURE: float = 1.0
 
 GRAD_CAM: GradCAM | None = None
 GRAD_CAM_PP: GradCAMPlusPlus | None = None
@@ -100,7 +102,7 @@ else:
 
 def load_model_and_metadata() -> None:
     """Loads class mapping, model weights, and all XAI and analysis engines into global scope."""
-    global MODEL, CLASS_MAPPING, IDX_TO_CLASS
+    global MODEL, CLASS_MAPPING, IDX_TO_CLASS, TEMPERATURE
     global GRAD_CAM, GRAD_CAM_PP
     global SALIENCY_EXPLAINER, SMOOTH_GRAD_EXPLAINER
     global IG_EXPLAINER, SHAP_EXPLAINER, LIME_EXPLAINER
@@ -131,6 +133,8 @@ def load_model_and_metadata() -> None:
 
     MODEL.to(DEVICE)
     MODEL.eval()
+    TEMPERATURE = load_temperature()
+    logger.info("Calibration temperature T = %.3f", TEMPERATURE)
 
     # ── Initialise XAI engines ───────────────────────────────────────────────
     target_layer = MODEL.get_target_layer_for_gradcam()
@@ -227,7 +231,7 @@ def _classify(image: Image.Image) -> tuple[torch.Tensor, int, float, str, float]
 
     with torch.no_grad():
         logits = MODEL(input_tensor)
-        probs = torch.softmax(logits, dim=1)
+        probs = torch.softmax(logits / TEMPERATURE, dim=1)
         conf_val, pred_idx_tensor = torch.max(probs, dim=1)
         pred_idx = int(pred_idx_tensor.item())
         confidence = float(conf_val.item()) * 100.0
@@ -329,7 +333,7 @@ def _generate_gradient_group(
         quality_res = None
 
     try:
-        uncertainty_res = compute_mc_dropout_uncertainty(model=MODEL, input_tensor=input_tensor, num_passes=5)
+        uncertainty_res = compute_mc_dropout_uncertainty(model=MODEL, input_tensor=input_tensor, num_passes=20, temperature=TEMPERATURE)
     except Exception as exc:
         logger.warning("MC-Dropout uncertainty notice: %s", exc)
         uncertainty_res = None
@@ -474,6 +478,7 @@ async def predict_insight(payload: InsightRequest) -> dict[str, Any]:
         get_disease_explanation,
         class_name=payload.class_name,
         confidence=payload.confidence,
+        findings=payload.findings,
     )
     dur_groq = time.perf_counter() - t_groq0
 
@@ -484,6 +489,8 @@ async def predict_insight(payload: InsightRequest) -> dict[str, Any]:
         "cure": llm_insights["cure"],
         "prevention": llm_insights["prevention"],
         "precautions": llm_insights["precautions"],
+        "signs": llm_insights["signs"],
+        "source": llm_insights["source"],
         "groq_seconds": round(dur_groq, 3),
     }
 
@@ -496,6 +503,7 @@ async def explain_xai_method(payload: XAIExplanationRequest) -> dict[str, str]:
         class_name=payload.class_name,
         confidence=payload.confidence,
         xai_method=payload.xai_method,
+        findings=payload.findings,
     )
 
 
@@ -503,9 +511,11 @@ async def explain_xai_method(payload: XAIExplanationRequest) -> dict[str, str]:
 def list_sample_specimens() -> list[dict[str, str]]:
     """Returns metadata for available verified evaluation leaf specimens."""
     return [
-        {"id": "potato_early_blight", "name": "Potato Early Blight", "crop": "Potato", "tag": "Fungal Alternaria"},
-        {"id": "tomato_early_blight", "name": "Tomato Early Blight", "crop": "Tomato", "tag": "Target-Spot Lesion"},
-        {"id": "tomato_leaf_specimen", "name": "Tomato Target Spot", "crop": "Tomato", "tag": "Canopy Chlorosis"},
+        {"id": "tomato_early_blight", "name": "Tomato Early Blight", "crop": "Tomato", "tag": "Fungal Alternaria"},
+        {"id": "potato_late_blight", "name": "Potato Late Blight", "crop": "Potato", "tag": "Water Mold Oomycete"},
+        {"id": "pepper_bacterial_spot", "name": "Bell Pepper Bacterial Spot", "crop": "Pepper", "tag": "Bacterial Xanthomonas"},
+        {"id": "tomato_target_spot", "name": "Tomato Target Spot", "crop": "Tomato", "tag": "Target-Spot Corynespora"},
+        {"id": "tomato_healthy", "name": "Tomato Healthy Leaf", "crop": "Tomato", "tag": "Pristine Canopy"},
     ]
 
 
@@ -514,10 +524,14 @@ def get_sample_image(sample_id: str):
     """Returns the verified test leaf image file."""
     project_root = Path(__file__).resolve().parent.parent
     mapping = {
-        "potato_early_blight": project_root / "Test_Images" / "Test_Image2.png",
-        "tomato_early_blight": project_root / "Test_Images" / "Test_Image 1",
-        "tomato_leaf_specimen": project_root / "Test_Images" / "Test_Image3.png",
-        "scratch_leaf": project_root / "scratch_leaf.jpg",
+        "tomato_early_blight": project_root / "Test_Images" / "verified_tomato_early_blight.jpg",
+        "potato_late_blight": project_root / "Test_Images" / "verified_potato_late_blight.jpg",
+        "pepper_bacterial_spot": project_root / "Test_Images" / "verified_bell_pepper_bacterial_spot.jpg",
+        "tomato_target_spot": project_root / "Test_Images" / "verified_tomato_target_spot.jpg",
+        "tomato_healthy": project_root / "Test_Images" / "verified_tomato_healthy.jpg",
+        # Backward compatibility aliases
+        "potato_early_blight": project_root / "Test_Images" / "verified_tomato_early_blight.jpg",
+        "tomato_leaf_specimen": project_root / "Test_Images" / "verified_tomato_target_spot.jpg",
     }
     file_path = mapping.get(sample_id)
     if not file_path or not file_path.exists():

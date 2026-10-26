@@ -1,0 +1,59 @@
+id,true,pred,conf,second,second_conf,mc_std,gradcam_pp_localization,cf_confidence_drop
+0,Tomato Late blight,Tomato healthy,0.997,Tomato Late blight,0.001,0.002,0.768,1.69
+1,Tomato Target Spot,Tomato Spider mites Two spotted spider mite,0.977,Tomato Target Spot,0.021,0.01,0.903,15.78
+2,Tomato Target Spot,Tomato Early blight,0.971,Tomato Leaf Mold,0.016,0.015,0.882,55.69
+3,Tomato Target Spot,Tomato Spider mites Two spotted spider mite,0.926,Tomato Target Spot,0.067,0.027,0.876,3.43
+4,Tomato Tomato YellowLeaf Curl Virus,Tomato Spider mites Two spotted spider mite,0.905,Tomato Leaf Mold,0.087,0.087,0.881,11.31
+5,Tomato Target Spot,Tomato Spider mites Two spotted spider mite,0.898,Tomato Target Spot,0.062,0.042,0.854,75.31
+6,Tomato Early blight,Tomato Late blight,0.87,Tomato Early blight,0.087,0.037,0.76,34.82
+7,Tomato Early blight,Tomato Bacterial spot,0.832,Tomato Early blight,0.142,0.045,0.606,50.58
+8,Tomato Bacterial spot,Tomato Early blight,0.83,Tomato Bacterial spot,0.159,0.046,0.804,14.2
+9,Tomato Target Spot,Pepper bell healthy,0.83,Tomato Target Spot,0.154,0.055,0.873,64.19
+10,Tomato Late blight,Tomato Early blight,0.83,Tomato Late blight,0.103,0.046,0.825,36.3
+11,Tomato Leaf Mold,Tomato Spider mites Two spotted spider mite,0.798,Tomato Leaf Mold,0.169,0.127,0.724,40.64
+12,Tomato Leaf Mold,Tomato Septoria leaf spot,0.79,Tomato Leaf Mold,0.209,0.09,0.796,55.79
+13,Pepper bell Bacterial spot,Pepper bell healthy,0.787,Pepper bell Bacterial spot,0.204,0.089,0.878,73.67
+14,Potato Late blight,Tomato Late blight,0.773,Potato Late blight,0.108,0.083,0.701,11.31
+15,Tomato Target Spot,Tomato Spider mites Two spotted spider mite,0.772,Tomato Target Spot,0.217,0.101,0.917,-0.58
+16,Tomato Target Spot,Tomato Septoria leaf spot,0.771,Tomato Target Spot,0.18,0.08,0.879,71.19
+17,Tomato Leaf Mold,Tomato Spider mites Two spotted spider mite,0.748,Tomato Leaf Mold,0.219,0.091,0.875,38.9
+18,Tomato Late blight,Pepper bell healthy,0.715,Tomato Late blight,0.281,0.109,0.665,47.99
+19,Tomato Target Spot,Tomato Spider mites Two spotted spider mite,0.711,Tomato Target Spot,0.268,0.106,0.858,60.22
+20,Tomato Tomato YellowLeaf Curl Virus,Tomato Bacterial spot,0.696,Tomato Tomato YellowLeaf Curl Virus,0.29,0.095,0.866,57.31
+21,Tomato Late blight,Tomato Early blight,0.695,Tomato Late blight,0.264,0.144,0.514,64.33
+22,Tomato Septoria leaf spot,Tomato Bacterial spot,0.687,Tomato Septoria leaf spot,0.29,0.081,0.872,5.16
+23,Tomato Tomato YellowLeaf Curl Virus,Tomato Spider mites Two spotted spider mite,0.67,Tomato Tomato YellowLeaf Curl Virus,0.291,0.091,0.918,-15.86
+24,Tomato Spider mites Two spotted spider mite,Tomato Tomato YellowLeaf Curl Virus,0.655,Tomato Spider mites Two spotted spider mite,0.289,0.15,0.894,60.0
+25,Tomato Late blight,Tomato Early blight,0.641,Tomato Late blight,0.3,0.091,0.32,11.71
+26,Tomato Bacterial spot,Tomato Early blight,0.631,Tomato Bacterial spot,0.358,0.152,0.885,61.0
+27,Tomato Tomato YellowLeaf Curl Virus,Tomato Spider mites Two spotted spider mite,0.629,Tomato Tomato YellowLeaf Curl Virus,0.273,0.089,0.869,43.12
+28,Tomato Early blight,Tomato Late blight,0.619,Tomato Early blight,0.291,0.141,0.862,49.98
+29,Potato Late blight,Tomato Late blight,0.615,Potato Late blight,0.382,0.12,0.411,-13.85
+30,Tomato Bacterial spot,Tomato Early blight,0.602,Tomato Bacterial spot,0.243,0.091,0.886,47.85
+31,Tomato Bacterial spot,Tomato Tomato YellowLeaf Curl Virus,0.601,Tomato Bacterial spot,0.373,0.12,0.976,56.87
+32,Tomato Target Spot,Tomato Spider mites Two spotted spider mite,0.595,Tomato Target Spot,0.195,0.095,0.914,31.64
+33,Tomato Late blight,Tomato Early blight,0.586,Tomato Late blight,0.412,0.141,0.497,52.6
+34,Tomato Target Spot,Tomato healthy,0.585,Tomato Target Spot,0.241,0.119,0.794,32.03
+35,Tomato Early blight,Tomato Septoria leaf spot,0.581,Tomato Early blight,0.234,0.116,0.828,34.6
+36,Tomato Bacterial spot,Tomato Target Spot,0.575,Tomato Bacterial spot,0.408,0.114,0.919,37.0
+37,Potato Late blight,Potato healthy,0.569,Potato Late blight,0.427,0.065,0.948,55.08
+38,Potato Early blight,Potato Late blight,0.567,Potato Early blight,0.429,0.062,0.841,26.91
+39,Tomato Septoria leaf spot,Tomato Leaf Mold,0.566,Tomato Septoria leaf spot,0.433,0.153,0.752,51.78
+40,Tomato Early blight,Pepper bell Bacterial spot,0.563,Tomato Early blight,0.402,0.112,0.809,53.68
+41,Tomato Early blight,Tomato Septoria leaf spot,0.56,Tomato Early blight,0.314,0.108,0.765,17.62
+42,Tomato Early blight,Tomato Target Spot,0.546,Tomato Spider mites Two spotted spider mite,0.381,0.131,0.832,-29.97
+43,Tomato Leaf Mold,Tomato Spider mites Two spotted spider mite,0.539,Tomato Leaf Mold,0.406,0.108,0.872,-29.01
+44,Tomato Bacterial spot,Tomato Target Spot,0.537,Tomato Bacterial spot,0.447,0.123,0.956,43.61
+45,Potato Late blight,Potato healthy,0.516,Potato Late blight,0.483,0.067,0.925,5.29
+46,Tomato Late blight,Tomato Early blight,0.508,Tomato Late blight,0.361,0.105,0.557,35.11
+47,Tomato Septoria leaf spot,Tomato Target Spot,0.498,Tomato Septoria leaf spot,0.402,0.17,0.872,18.49
+48,Tomato Bacterial spot,Tomato Target Spot,0.476,Tomato Bacterial spot,0.435,0.105,0.869,17.97
+49,Tomato Septoria leaf spot,Tomato Leaf Mold,0.469,Tomato Septoria leaf spot,0.431,0.122,0.468,43.73
+50,Tomato Tomato YellowLeaf Curl Virus,Tomato Leaf Mold,0.459,Tomato Spider mites Two spotted spider mite,0.301,0.082,0.829,44.83
+51,Tomato Septoria leaf spot,Tomato Tomato mosaic virus,0.453,Tomato Septoria leaf spot,0.397,0.085,0.66,44.49
+52,Tomato Early blight,Tomato Late blight,0.443,Tomato Early blight,0.383,0.081,0.641,2.22
+53,Tomato Bacterial spot,Tomato Early blight,0.437,Tomato Bacterial spot,0.329,0.106,0.873,-12.92
+54,Tomato Leaf Mold,Tomato Target Spot,0.435,Tomato Septoria leaf spot,0.177,0.1,0.777,20.28
+55,Tomato Target Spot,Tomato healthy,0.411,Tomato Target Spot,0.372,0.164,0.849,24.36
+56,Tomato Early blight,Tomato Late blight,0.383,Tomato Early blight,0.307,0.128,0.8,35.95
+57,Tomato Late blight,Potato Late blight,0.379,Tomato Late blight,0.339,0.061,0.87,35.7

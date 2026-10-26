@@ -10,3 +10,10 @@ reports/*.png
 frontend/node_modules/
 frontend/dist/
 scratch_leaf.jpg
+
+# Large regenerable study outputs (python -m experiments... / bash experiments/run_all.sh)
+reports/study/*.npz
+reports/study/failures/
+reports/study/expert_packet/
+# Backups of the pre-deduplication (leaky) run
+*/legacy_leaky_split/

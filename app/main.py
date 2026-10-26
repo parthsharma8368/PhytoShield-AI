@@ -38,7 +38,7 @@ app = FastAPI(
         "Plant disease classification with a 7-method XAI attribution engine: "
         "Grad-CAM, Grad-CAM++, Vanilla Saliency, SmoothGrad, "
         "Integrated Gradients, SHAP Occlusion, and LIME. "
-        "Powered by EfficientNet-B0 (99.48% accuracy) + Groq LLM pathology reports."
+        "Powered by EfficientNet-B0 + Groq LLM pathology reports."
     ),
     version="2.0.0",
     lifespan=lifespan,

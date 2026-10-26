@@ -27,7 +27,7 @@ def evaluate_subgroup_fairness() -> dict[str, Any]:
     """Evaluates fairness and performance parity across crop species and pathogen types.
 
     Computes Disparate Impact Ratio and Equality of Opportunity directly from
-    the actual test evaluation report on 6,203 real images.
+    the actual test evaluation report on the de-duplicated test set.
 
     Returns:
         dict[str, Any]: Detailed subgroup performance audit.
@@ -114,34 +114,36 @@ def evaluate_subgroup_fairness() -> dict[str, Any]:
 def compute_mc_dropout_uncertainty(
     model: nn.Module,
     input_tensor: torch.Tensor,
-    num_passes: int = 10,
+    num_passes: int = 20,
+    temperature: float = 1.0,
 ) -> dict[str, float]:
     """Estimates Epistemic and Aleatoric Uncertainty via Monte Carlo Dropout.
 
-    Enables Dropout layers during evaluation and runs stochastic forward passes.
+    Dropout exists only in the classifier head, so the backbone runs once and only the head is repeated.
+    ``temperature`` is the calibration scalar from ``evaluation.calibration``.
 
     Args:
         model: PyTorch model.
         input_tensor: Normalized image tensor (1, 3, H, W).
-        num_passes: Number of stochastic MC passes (default: 10).
+        num_passes: Number of stochastic MC passes (default: 20).
+        temperature: Divides the logits before softmax.
 
     Returns:
         dict[str, float]: Mean confidence, Epistemic uncertainty std, Predictive entropy.
     """
-    # Force dropout layers to stay in train mode
-    for m in model.modules():
-        if isinstance(m, nn.Dropout):
-            m.train()
-
+    base = model.base_model
     predictions: list[np.ndarray] = []
     with torch.no_grad():
-        for _ in range(num_passes):
-            logits = model(input_tensor)
-            probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
-            predictions.append(probs)
-
-    # Revert back to eval mode
-    model.eval()
+        feats = torch.flatten(base.avgpool(base.features(input_tensor)), 1)
+        for m in base.classifier.modules():
+            if isinstance(m, nn.Dropout):
+                m.train()
+        try:
+            for _ in range(num_passes):
+                logits = base.classifier(feats.clone())  # clone: the head's Dropout is in-place
+                predictions.append(torch.softmax(logits / temperature, dim=1).cpu().numpy()[0])
+        finally:
+            model.eval()
 
     pred_array = np.array(predictions)  # (T, num_classes)
     mean_probs = np.mean(pred_array, axis=0)
@@ -366,7 +368,7 @@ def generate_trustworthiness_report(
     target_dir = output_dir or config.REPORTS_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Real Subgroup fairness from full 6,203 test samples
+    # 1. Real subgroup fairness from the full test set
     fairness = evaluate_subgroup_fairness()
 
     # 2. Real empirical audit on actual test images

@@ -34,7 +34,7 @@ export interface DecisionStaging {
 }
 
 export interface DecisionSupportItem {
-  affected_leaf_percentage: number;
+  affected_leaf_percentage: number | null;
   staging: DecisionStaging;
   validation_checklist: Array<{
     id: string;
@@ -50,6 +50,7 @@ export interface FaithfulnessMetrics {
   deletion_auc: number;
   insertion_auc: number;
   faithfulness_score: number;
+  random_baseline_score?: number;
 }
 
 export interface SparsityMetrics {
@@ -128,8 +129,10 @@ export interface InsightResult {
   cure: string;
   prevention: string;
   precautions: string;
+  signs?: string;
+  source?: 'groq' | 'unavailable';
   groq_seconds: number;
 }
 
-export type XAIMethodKey = 'gradcam_pp' | 'ig' | 'shap' | 'lime';
+export type XAIMethodKey = 'gradcam_pp' | 'gradcam' | 'saliency' | 'smoothgrad' | 'ig' | 'shap' | 'lime';
 export type ClinicalTab = 'pathology' | 'treatment' | 'prevention' | 'precautions';

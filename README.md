@@ -1,160 +1,127 @@
-# 🌿 PhytoShield AI — Explainable Plant Disease Detection System
+# PhytoShield AI — Explainable Plant Disease Detection
 
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![React + Vite](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB.svg)](https://vitejs.dev/)
 [![PyTorch](https://img.shields.io/badge/ML%20Framework-PyTorch-EE4C2C.svg)](https://pytorch.org/)
-[![Accuracy](https://img.shields.io/badge/Test%20Accuracy-99.48%25-00b87c.svg)](#metrics)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**PhytoShield AI** is a research-grade, production-ready Explainable AI (XAI) Plant Pathology Intelligence System. It identifies crop diseases from leaf photography with **99.48% accuracy** across 15 agricultural classes, providing multi-modal visual attribution heatmaps (**Grad-CAM**, **Grad-CAM++**, **Integrated Gradients**, **SHAP**, **LIME**, **SmoothGrad**, **Saliency**), **Counterfactual Foliar Perturbation**, and **Botanical Concept Bottlenecks (CBM)** alongside **Groq LLM** visual feature explanations.
+PhytoShield AI looks at a photo of a leaf, names the disease (15 classes from the PlantVillage dataset) and shows **where on the leaf the model looked** and **whether that explanation can be trusted**. A fine-tuned EfficientNet-B0 makes the diagnosis, seven explanation methods draw heat-maps, and six quality metrics score those heat-maps.
+
+All numbers below were measured on a **de-duplicated** test set of 3,107 images and can be regenerated with one command (see [Reproduce](#reproduce-every-number)).
+
+> **Data-leakage note.** The original dataset folder held byte-identical copies of the same photos, and the first random split put the same file in both training and test sets, which produced an inflated 99.48 % accuracy. The splitter now removes identical files (MD5 content hash) before splitting, and `tests/test_dataset_integrity.py` fails if any file appears in two splits. Near-duplicates (different photos of the same leaf) are **not** detected, so real-world accuracy is likely lower than reported. The old artefacts are kept in `*/legacy_leaky_split/` for comparison.
 
 ---
 
-## 🌟 Key Features & Research Framework
+## Results at a glance
 
-### 1. Instant Diagnosis, Progressive Research Report
-- Prediction is split into three independent endpoints — `POST /api/predict/quick` (classification + primary heatmap, typically well under a second), `POST /api/predict/report` (full 7-engine XAI suite + research extensions), and `POST /api/predict/insight` (Groq LLM clinical narrative) — so the diagnosis renders immediately while the deeper explainability report loads in behind it.
-- SHAP occlusion runs as a single batched forward pass instead of one pass per grid patch; independent XAI engines (SHAP, LIME, counterfactual, botanical concepts, decision support) execute concurrently via `asyncio.gather`; the Groq LLM call is offloaded to a worker thread so it never blocks the API for other requests.
+| Item | Value | Source |
+|---|---|---|
+| Test images (unique) | 3,107 (train 14,430 / val 3,087) | `reports/study/dataset_audit.json` |
+| Test accuracy | 98.13 % (58 mistakes) | `reports/study/base_model_results.json` |
+| Macro precision / recall / F1 | 0.9765 / 0.9818 / 0.9790 | same |
+| Calibration: ECE / MCE / Brier | 0.016 / 0.772 / 0.0294 | same |
+| Mistake detection from confidence | AUROC 0.964 | `reports/study/table_error_detection.md` |
+| Most common confusion | Target Spot → Spider mites (6), Late ↔ Early blight (5 + 4) | `base_model_results.json` |
+| Model size | 4.03 M parameters, 0.39 GFLOPs | `reports/model_benchmarks.json` |
 
-### 2. Multi-Model Architecture Benchmarking
-- Multi-model factory and comparative framework across **EfficientNet-B0** (Production Backbone, 99.48% Test Accuracy), and candidate architectures **ResNet-50**, **MobileNetV3-Large**, and **DenseNet-121**.
-- Live empirical audit: Real parameter counts, model disk sizes, FLOPs, and live measured device latency (MPS / CUDA / CPU) via PyTorch.
-- Automated training pipeline (`training/train_benchmarks.py`) to train and evaluate any candidate architecture on the real dataset splits.
+**Explanation quality** (stratified sample, 300 images; LIME 75; lower deletion AUC = more faithful; random baseline = 0.326):
 
-### 3. Multi-Engine & Multi-Modality XAI Suite
-- **Pixel & Feature Attributions**: Grad-CAM, Grad-CAM++, Integrated Gradients, SHAP Occlusion, LIME Superpixel, SmoothGrad, Saliency.
-- **Counterfactual Explanations**: In-painted foliar lesion neutralization engine simulating disease removal, measuring causal confidence reduction ($\Delta P$) and lesion attribution causality.
-- **Botanical Concept Bottleneck Model (CBM)**: Concept scores for *Chlorosis*, *Foliar Necrosis*, *Concentric Target Rings*, *Mold/Sporulation*, and *Healthy Foliage*.
+| Method | Deletion AUC ↓ | Insertion AUC ↑ | Localization ↑ | Seconds / image |
+|---|---|---|---|---|
+| Grad-CAM | 0.207 | 0.360 | 0.723 | 0.06 |
+| Grad-CAM++ | 0.209 | 0.373 | 0.795 | 0.05 |
+| SHAP (occlusion) | 0.274 | 0.391 | 0.615 | 0.22 |
+| SmoothGrad | 0.312 | 0.530 | 0.537 | 0.57 |
+| LIME | 0.304 | 0.427 | 0.445 | 0.28 |
+| Saliency | 0.318 | 0.434 | 0.459 | 0.05 |
+| Integrated Gradients | 0.376 | 0.419 | 0.351 | 0.58 |
 
-### 4. Quantitative Explanation Quality Metrics
-- **Faithfulness**: Pixel Deletion & Insertion Area Under Curve (AUC).
-- **Stability**: Lipschitz continuity bound under subtle input perturbations.
-- **Consistency**: Cross-method Spearman rank correlation across attribution engines.
-- **Robustness**: Photometric SSIM structural invariance under lighting shifts.
-- **Sparsity**: Gini coefficient & Shannon entropy concentration.
-- **Localization**: Pointing Game foliar energy ratio within biological leaf tissue.
+Grad-CAM, Grad-CAM++ and SHAP are significantly better than random (Wilcoxon p < 1e-7). **Integrated Gradients is worse than random on the deletion test** in this setup, and the three attribution families agree only weakly on their top-20 % regions. Full tables, curves and statistics: `reports/study/`.
 
-### 5. Trustworthy AI Behavior Audits
-- **Subgroup Fairness**: Computed directly from 6,203 real test samples (Pepper: 100.0%, Potato: 99.23%, Tomato: 99.44%; Disparate Impact Ratio = 0.9923).
-- **Uncertainty Quantification**: Bayesian Monte Carlo Dropout separating epistemic vs aleatoric uncertainty.
-- **Model Calibration & Drift**: Real Expected Calibration Error (ECE = 1.17%) across 10 confidence bins with reliability diagrams.
-- **Adversarial Robustness Audit**: Empirical Fast Gradient Sign Method (FGSM $\epsilon=0.03$) evaluation across 300 test specimens (clean accuracy 99.33% $\to$ adversarial accuracy 10.33%, demonstrating the empirical necessity of XAI audits).
-- **Spurious Feature Invariance**: Foreground-background ablation testing confirming 81.33% prediction invariance when non-leaf backgrounds are masked.
-
-### 6. Agronomist Decision-Support Value
-- **Foliar Lesion Staging**: Surface area affected % with 3-stage clinical severity grading (Mild <10%, Moderate 10-25%, Severe >25%).
-- **Agronomist Validation Checklist**: Interactive 4-point verification checklist for field agronomists.
-- **Precision Triage Protocols**: Prioritized agricultural interventions (Containment, Targeted Fungicide, Microclimate Control).
-
-### 7. The 10-Dimension XAI Evaluation Framework
-- Standardized academic assessment across: Predictive Performance, Interpretability, Faithfulness, Stability, Robustness, Fairness, Confidence, Actionability, Human Usefulness, and Domain Impact.
+**Robustness** (accuracy on the full test set after changing every image): brightness ×0.5 → 96.1 %, ×1.5 → 94.0 %, JPEG quality 15 → 87.8 %, 25 % occlusion → 86.9 %, background removed → 74.8 %. The model is **fragile to noise and blur**: Gaussian noise σ = 0.10 → 24.9 %, Gaussian blur radius 3 → 16.5 %.
 
 ---
 
-## 📁 Repository Structure
+## How it works
 
-```
-PhytoShield-AI/
-├── api/                    # FastAPI routes, schemas & REST endpoints
-├── app/                    # Main FastAPI app & Groq LLM explainer service
-├── data/                   # Data loader, splits, and class mappings
-├── evaluation/             # Model benchmarks, trustworthiness audits & decision support
-│   ├── model_benchmarks.py
-│   ├── trustworthiness.py
-│   └── decision_support.py
-├── explainability/         # 7 XAI engines, metrics, counterfactual & concept explainers
-│   ├── grad_cam.py
-│   ├── grad_cam_plus_plus.py
-│   ├── integrated_gradients.py
-│   ├── shap_explainer.py
-│   ├── lime_explainer.py
-│   ├── saliency.py
-│   ├── metrics.py
-│   ├── counterfactual.py
-│   └── concept_explainer.py
-├── frontend/               # React + Vite TypeScript SaaS web app
-│   ├── src/
-│   │   ├── pages/ (Home.tsx, Analyze.tsx, Benchmarks.tsx, Telemetry.tsx)
-│   │   ├── components/analyze/ (extracted Analyze workspace components)
-│   │   ├── App.tsx
-│   │   └── index.css
-│   └── vite.config.ts
-├── models/                 # Model architectures (EfficientNet-B0) & weights
-├── reports/                # Serialized benchmark, trustworthiness & XAI framework matrices
-└── tests/                  # Automated integration & unit test suite
-```
+1. **Diagnosis in one step** — `POST /api/predict/quick` returns the label, confidence and the first heat-map almost immediately.
+2. **Detail loads behind it** — `POST /api/predict/report` runs all seven explanation methods plus the extras; `POST /api/predict/insight` asks a Groq-hosted LLM (default `openai/gpt-oss-120b`, set `GROQ_MODEL` to change) for guidance written from this image's measured findings (needs a Groq key; there is no canned fallback text).
+3. **Explanation methods** — Grad-CAM, Grad-CAM++, Saliency, SmoothGrad, Integrated Gradients, SHAP (occlusion) and LIME.
+4. **Extras** — a counterfactual check (paint over the suspected lesion and re-run the model), rule-based concept scores (colour/texture rules for chlorosis, necrosis, rings, mould; heuristics, **not** a trained concept-bottleneck model) and Monte-Carlo-dropout uncertainty.
+5. **Explanation quality metrics** — faithfulness (deletion/insertion), stability, consistency, robustness, sparsity, localization (`explainability/metrics.py`). The weights of the composite index are a design choice and have not been validated.
+6. **Leaf damage** — the share of the leaf that is discoloured, measured from pixel colour inside a GrabCut leaf mask (`evaluation/decision_support.py`), not from the heatmap. `python -m experiments.validate_severity` checks it: healthy test leaves read a median 0.1 % (93 % below 5 %), and on healthy leaves with painted lesions of known area the mean error is 1.6 percentage points (r = 0.97, stage agreement 94 %). That test is synthetic; there are no expert lesion masks, so accuracy on real lesions is not measured.
+7. **Confidence** is temperature-scaled (T = 0.778, fitted on the validation set, `python -m evaluation.calibration`): test ECE 0.016 → 0.0056 with accuracy unchanged.
+
+Training: two-stage transfer learning (head only, then the last blocks), AdamW-style settings in `config/config.py`, seed 42, stratified 70/15/15 split, early stopping.
 
 ---
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.12+
-- Node.js 18+
-- Groq API Key (Optional for LLM explanations, fallback knowledge base built-in)
-
-### 1. Backend Setup
+## Reproduce every number
 
 ```bash
-# Clone repository
-git clone https://github.com/parthsharma8368/PhytoShield-AI.git
-cd PhytoShield-AI
-
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Start FastAPI server
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+python -m pytest tests/test_dataset_integrity.py     # confirms train/val/test share no file
+python training/train_main.py                        # ~45 min on Apple-silicon MPS
+bash experiments/run_all.sh                          # ~40 min: base eval, XAI study, perturbations,
+                                                     #   failure cases, figures, fact sheet, website numbers
 ```
 
-Backend will run at `http://localhost:8001`. Swagger API docs available at `http://localhost:8001/docs`.
+Outputs land in `reports/study/` (tables, figures, JSON/CSV) and `report_kit/fact_sheet.md`. The website reads its numbers from `frontend/src/generated/metrics.ts`, which `experiments/export_frontend_metrics.py` writes from those results, so nothing on the site is typed by hand.
 
-### 2. Frontend Setup
+Human-expert evaluation: `reports/study/expert_packet/` contains 16 blinded cases and a rating form. **Results are pending** until an expert fills in `expert_form.csv`; then run `python -m experiments.analyze_expert_feedback`.
+
+---
+
+## Run the app
 
 ```bash
-# Navigate to frontend directory
-cd frontend
+# backend (http://localhost:8001, API docs at /docs)
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
-# Install node dependencies
-npm install
-
-# Start Vite dev server
-npm run dev
+# frontend (http://localhost:5174)
+cd frontend && npm install && npm run dev
 ```
 
-Frontend will run at `http://localhost:5174`.
-
----
-
-## 📊 Model & Benchmark Metrics
-
-| Metric | Score |
-| :--- | :--- |
-| **Test Accuracy** | **99.48%** |
-| **Parameters** | **5.3 Million** |
-| **Input Shape** | `224 × 224 × 3` |
-| **Inference Latency** | `< 45ms` (MPS / GPU) |
-| **Supported Classes** | **15 Plant Pathology Classes** |
-
----
-
-## 🔑 Environment Variables
-
-Create a `.env` file in the root directory:
+Optional `.env` in the project root:
 
 ```env
-GROQ_API_KEY=your_groq_api_key_here
+GROQ_API_KEY=your_groq_api_key_here   # LLM guidance; without it the panel says the guidance is unavailable
 PORT=8001
 HOST=0.0.0.0
 ```
 
 ---
 
-## 📜 License
+## Repository layout
+
+```
+api/ app/            FastAPI routes, schemas, LLM explainer service
+data/                dataset splitter (with content-hash de-duplication) and split manifests
+models/              EfficientNet-B0 definition, weights, training history
+explainability/      7 attribution engines, metrics, counterfactual, concept scoring
+evaluation/          benchmarks, trustworthiness audit, decision support
+experiments/         reproducible study scripts, report generator (generate_report.py), originality checker
+reports/             academic research report (DOCX & PDF), study tables, figures and result files
+report_kit/          fact sheet, writing guide, bibliography references
+frontend/            React + Vite TypeScript app
+tests/               unit, API and dataset-integrity tests
+```
+
+---
+
+## Known limitations
+
+- Only byte-identical duplicates were removed; near-duplicate photos can still sit in both train and test, so the accuracy is optimistic.
+- PlantVillage photos are lab-style on plain backgrounds; field performance is untested.
+- The explanation study uses a stratified sample of the test set, not all images; localization uses a green-pixel leaf mask rather than expert lesion masks.
+- Accuracy collapses under Gaussian noise and blur (see Robustness) and under a gradient attack (FGSM ε = 0.03 retained 13.5 % on 300 images).
+- Severity staging and concept scores are heuristics, not clinically validated.
+- Expert feedback is pending.
+
+## License
 
 Distributed under the MIT License. See `LICENSE` for details.

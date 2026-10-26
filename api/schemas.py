@@ -41,6 +41,7 @@ class FaithfulnessMetrics(BaseModel):
     deletion_auc: float
     insertion_auc: float
     faithfulness_score: float
+    random_baseline_score: float | None = None
 
 
 class SparsityMetrics(BaseModel):
@@ -103,7 +104,7 @@ class DecisionStaging(BaseModel):
 
 class DecisionSupportResponse(BaseModel):
     """Actionable agronomic decision-support response schema."""
-    affected_leaf_percentage: float
+    affected_leaf_percentage: float | None = None
     staging: DecisionStaging
     validation_checklist: list[dict[str, Any]]
     triage_actions: list[str]
@@ -162,6 +163,8 @@ class InsightResponse(BaseModel):
     cure: str = Field(..., description="Recommended organic and chemical treatments")
     prevention: str = Field(..., description="Long-term agricultural prevention strategies")
     precautions: str = Field(..., description="Immediate agricultural precautions")
+    signs: str = Field("", description="Specific signs to look for on the real leaf")
+    source: str = Field("groq", description="'groq' when written by the LLM, 'unavailable' when the call failed")
     groq_seconds: float = Field(..., description="Groq LLM API call duration in seconds")
 
 
@@ -169,6 +172,7 @@ class InsightRequest(BaseModel):
     """Request schema for the Groq LLM clinical narrative stage."""
     class_name: str = Field(..., description="Raw model predicted category name")
     confidence: float = Field(..., description="Prediction confidence score percentage (0-100)")
+    findings: dict[str, Any] | None = Field(None, description="Measured facts for this image (damage %, concepts, uncertainty, ...)")
 
 
 class XAIExplanationRequest(BaseModel):
@@ -176,6 +180,7 @@ class XAIExplanationRequest(BaseModel):
     class_name: str = Field(..., description="Raw model predicted category name")
     confidence: float = Field(..., description="Prediction confidence score percentage (0-100)")
     xai_method: str = Field("gradcam", description="Target XAI technique to explain")
+    findings: dict[str, Any] | None = Field(None, description="Measured facts for this image")
 
 
 class XAIExplanationResponse(BaseModel):

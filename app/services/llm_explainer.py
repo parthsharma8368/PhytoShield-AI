@@ -1,8 +1,7 @@
-"""Groq LLM Disease & XAI Feature Attribution Insight Service.
+"""Groq LLM service: disease guidance and per-method explanations written from this image's measured findings.
 
-Queries Groq LLM to generate structured disease explanations, method-specific visual feature attribution
-explanations (tailored for Grad-CAM, Integrated Gradients, SHAP, LIME, or Combined All),
-cures, preventions, and precautions based on model predictions.
+There is no canned text. If Groq cannot be reached the response says so (``source: "unavailable"``)
+instead of showing generic filler that looks like a real answer.
 """
 
 import json
@@ -23,130 +22,6 @@ except ImportError:
     GROQ_AVAILABLE = False
     logger.warning("Groq package not installed. Fallback mode will be used.")
 
-
-# Method-specific fallback explanations for all 7 XAI attribution methods
-METHOD_SPECIFIC_FALLBACKS: dict[str, dict[str, str]] = {
-    "gradcam": {
-        "title": "Grad-CAM Spatial Activation",
-        "heading": "AI CLINICAL — GRAD-CAM INTERPRETATION",
-        "text": (
-            "Grad-CAM convolutional feature maps show concentrated positive activations over "
-            "the central necrotic lesion zones and surrounding chlorotic yellow halos. "
-            "The neural network's final convolution layer prioritized these high-intensity lesion clusters, "
-            "confirming that spatial disease localization drove the classification decision."
-        ),
-    },
-    "gradcam_pp": {
-        "title": "Grad-CAM++ Multi-Instance Activation",
-        "heading": "AI CLINICAL — GRAD-CAM++ INTERPRETATION",
-        "text": (
-            "Grad-CAM++ applies second- and third-order positive partial derivatives to weight feature activations. "
-            "This provides sharper localization over multiple discrete lesion spots and smaller co-occurring symptom patches "
-            "across the leaf blade compared to standard Grad-CAM."
-        ),
-    },
-    "saliency": {
-        "title": "Vanilla Saliency Map",
-        "heading": "AI CLINICAL — VANILLA SALIENCY INTERPRETATION",
-        "text": (
-            "Vanilla Saliency computes the raw magnitude of the output gradient with respect to input pixels (|∂y/∂x|). "
-            "The resulting pixel-level map highlights high-frequency symptom boundaries, vein bifurcations, and fine textural edges "
-            "that most immediately perturb the model's output score."
-        ),
-    },
-    "smoothgrad": {
-        "title": "SmoothGrad (Noise-Averaged Saliency)",
-        "heading": "AI CLINICAL — SMOOTHGRAD INTERPRETATION",
-        "text": (
-            "SmoothGrad reduces gradient noise by averaging saliency maps generated across 25 Gaussian-perturbed samples. "
-            "This filters out spurious pixel fluctuations and isolates coherent, robust visual structures representing true leaf pathology."
-        ),
-    },
-    "integrated_gradients": {
-        "title": "Integrated Gradients Attribution",
-        "heading": "AI CLINICAL — INTEGRATED GRADIENTS INTERPRETATION",
-        "text": (
-            "Integrated Gradients calculates pixel-level path attributions from a neutral baseline across 20 interpolation steps. "
-            "Satisfying axiomatic completeness, it highlights precise leaf vein junctions and diseased spot perimeters without gradient saturation."
-        ),
-    },
-    "shap": {
-        "title": "SHAP Occlusion Sensitivity",
-        "heading": "AI CLINICAL — SHAP INTERPRETATION",
-        "text": (
-            "SHAP patch occlusion evaluates the marginal contribution of masked leaf regions using game-theoretic Shapley values. "
-            "Occluding symptomatic foliar patches causes significant drops in class probability, verifying the model's reliance on genuine pathological patterns."
-        ),
-    },
-    "lime": {
-        "title": "LIME Superpixel Surrogate",
-        "heading": "AI CLINICAL — LIME INTERPRETATION",
-        "text": (
-            "LIME segments the leaf image into SLIC superpixels and fits an interpretable linear surrogate model across perturbations. "
-            "The superpixel clusters with the highest positive regression coefficients correspond directly to foliar spot margins and discolored tissue."
-        ),
-    },
-    "all": {
-        "title": "Combined 4-Method XAI Suite",
-        "heading": "AI CLINICAL — 4-ENGINE MULTI-MODAL XAI INTERPRETATION",
-        "text": (
-            "• Grad-CAM: Concentrates coarse activation over primary lesion epicenters.\n"
-            "• Grad-CAM++: Resolves multi-instance lesion clusters with second-order gradient weighting.\n"
-            "• Vanilla Saliency: Captures instantaneous pixel-level input sensitivity (|∂y/∂x|).\n"
-            "• SmoothGrad: Denoises the saliency map via 25-sample Gaussian smoothing.\n"
-            "• Integrated Gradients: Provides axiomatically complete path-integral pixel attributions.\n"
-            "• SHAP: Quantifies game-theoretic Shapley importance across 8×8 foliar patches.\n"
-            "• LIME: Fits a model-agnostic linear surrogate over SLIC superpixel segments."
-        ),
-    },
-}
-
-
-# Pre-defined fallback knowledge base for plant disease insights
-FALLBACK_KNOWLEDGE_BASE: dict[str, dict[str, str]] = {
-    "potato___early_blight": {
-        "explanation": "Early Blight is a common fungal disease caused by Alternaria solani. It manifests as dark concentric rings (target spot pattern) on older potato leaves, leading to premature leaf drop and reduced tuber yield.",
-        "xai_feature_explanation": "Grad-CAM and Integrated Gradients show high activation density around leaf margin spot clusters, confirming the neural network focused on target-spot fungal patterns rather than healthy background leaf tissue.",
-        "cure": "Apply copper-based fungicides or chlorothalonil at first sign of symptoms. Remove and destroy heavily infected foliage.",
-        "prevention": "Practice 3-year crop rotation, use disease-free certified seeds, and ensure proper plant spacing for adequate air circulation.",
-        "precautions": "Avoid overhead irrigation to minimize leaf wetness duration. Sanitize tools after pruning infected plants."
-    },
-    "potato___late_blight": {
-        "explanation": "Late Blight is a destructive water-mold disease caused by Phytophthora infestans. It forms large, dark brown water-soaked lesions on leaves with white mold growth on the undersides during humid weather.",
-        "xai_feature_explanation": "The attribution maps reveal strong neural focus on dark water-soaked leaf margins and pale mold sporulation regions, identifying irregular leaf necrosis as the primary driver.",
-        "cure": "Apply systemic fungicides containing mancozeb or metalaxyl immediately. Remove infected vines 2 weeks before harvest.",
-        "prevention": "Plant resistant cultivars, eliminate volunteer potato plants, and ensure proper soil drainage.",
-        "precautions": "Destroy infected tubers immediately to prevent spore dispersal. Avoid harvesting during wet soil conditions."
-    },
-    "tomato___early_blight": {
-        "explanation": "Tomato Early Blight is caused by Alternaria linariae, producing dark brown target-like spots with chlorotic yellow borders on foliage.",
-        "xai_feature_explanation": "XAI visual attribution highlights circular target spots and foliar yellowing surrounding central necrosis. High heatmap intensity over leaf vein junctions indicates the model utilized structural lesion spread as key classification evidence.",
-        "cure": "Spray copper hydroxide or chlorothalonil every 7-14 days. Remove lower diseased leaves.",
-        "prevention": "Mulch garden beds to prevent soil splashback and practice crop rotation.",
-        "precautions": "Ensure foliage dries quickly after rain and avoid working among wet tomato plants."
-    },
-    "tomato___late_blight": {
-        "explanation": "Tomato Late Blight causes rapid foliar collapse with dark gray water-soaked spots that expand rapidly in humid conditions.",
-        "xai_feature_explanation": "Attribution maps demonstrate localized high activation over water-soaked leaf tips and necrotic petioles. SHAP patch attribution confirms that non-chlorotic green leaf areas contributed negatively, isolating disease spots as the decisive feature.",
-        "cure": "Apply protective fungicides containing copper or chlorothalonil at the earliest detection.",
-        "prevention": "Use certified disease-free transplants and plant in full sun with drip irrigation.",
-        "precautions": "Remove and bag infected plants immediately. Do not compost infected foliage."
-    },
-    "tomato_healthy": {
-        "explanation": "The tomato foliage appears healthy with uniform green chlorophyll distribution and no visible signs of fungal, bacterial, or viral infection.",
-        "xai_feature_explanation": "XAI visual attribution displays uniform, low-intensity feature weights across intact leaf blade structures. The absence of localized high-gradient peak clusters verifies that the model found zero necrotic or chlorotic anomaly features.",
-        "cure": "No treatment required. Maintain current optimal growing conditions.",
-        "prevention": "Continue regular monitoring, balanced fertilization, and consistent watering schedule.",
-        "precautions": "Avoid physical injury to leaves and stems to prevent pathogen entry points."
-    },
-    "default": {
-        "explanation": "Plant pathology disease identified by deep learning classifier. Further visual inspection of symptoms recommended.",
-        "xai_feature_explanation": "Attribution heatmaps concentrate energy over symptomatic leaf lesions, spot boundaries, and chlorotic tissue zones. The visual feature map confirms the neural network prioritized pathological leaf anomalies over background noise.",
-        "cure": "Apply broad-spectrum organic neem oil or recommended copper-based fungicide.",
-        "prevention": "Maintain proper plant spacing, drip irrigation, and crop rotation practices.",
-        "precautions": "Sanitize gardening tools before and after handling plants."
-    }
-}
 
 
 CURATED_DISEASE_NAMES: dict[str, str] = {
@@ -270,218 +145,131 @@ def _clean_json_text(raw_text: str) -> str:
     return text
 
 
-DEFAULT_GROQ_MODEL = "groq/compound-mini"
+
+DEFAULT_GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_TIMEOUT_S = 30.0
+
+METHOD_TITLES: dict[str, str] = {
+    "gradcam": "Grad-CAM", "gradcam_pp": "Grad-CAM++", "saliency": "Saliency", "smoothgrad": "SmoothGrad",
+    "integrated_gradients": "Integrated Gradients", "shap": "SHAP (occlusion)", "lime": "LIME", "all": "All 7 methods",
+}
+
+METHOD_FOCUS: dict[str, str] = {
+    "gradcam": "Grad-CAM: coarse regions where the last convolution layer is most active for this class.",
+    "gradcam_pp": "Grad-CAM++: like Grad-CAM but weights gradients so several separate lesions can each light up.",
+    "saliency": "Saliency: how much the class score changes if each single pixel changes; shows fine edges and veins.",
+    "smoothgrad": "SmoothGrad: saliency averaged over noisy copies of the image, which removes speckle.",
+    "integrated_gradients": "Integrated Gradients: pixel credit summed along a path from a blank image to this image.",
+    "shap": "SHAP (occlusion): patches of the leaf are hidden one at a time; patches whose removal lowers the score matter most.",
+    "lime": "LIME: a simple local model fitted on many altered copies of the image, giving credit to superpixel regions.",
+    "all": "All seven methods side by side: what each one adds and how far they should be trusted to agree.",
+}
+
+SYSTEM_PROMPT = (
+    "You are a plant pathologist who also explains computer-vision models to growers. "
+    "Write for a farmer or student: plain words, specific, practical. "
+    "Base every statement about THIS leaf only on the analysis facts you are given and never invent numbers. "
+    "If confidence is low, uncertainty is high or the facts disagree, say so and what to check. "
+    "Plain text only (no markdown, no asterisks). Treatments must mention checking local rules and product labels. "
+    "Answer with one JSON object and nothing else."
+)
+
+
+def _ask_groq(user_prompt: str, api_key: str | None = None, max_tokens: int = 2500) -> dict[str, Any]:
+    """One Groq chat call that returns the parsed JSON object. Raises on any failure."""
+    key = api_key or os.getenv("GROQ_API_KEY")
+    if not GROQ_AVAILABLE:
+        raise RuntimeError("the groq package is not installed")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY is not set")
+    extra = {"reasoning_effort": "low"} if "gpt-oss" in DEFAULT_GROQ_MODEL else {}
+    completion = Groq(api_key=key, timeout=GROQ_TIMEOUT_S).chat.completions.create(
+        model=DEFAULT_GROQ_MODEL,
+        messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_prompt}],
+        temperature=0.3,
+        max_tokens=max_tokens,
+        response_format={"type": "json_object"},
+        **extra,
+    )
+    return json.loads(_clean_json_text(completion.choices[0].message.content or "{}"))
+
+
+def _ensure_str(val: Any, default: str = "") -> str:
+    """Turns a JSON field (string, list or dict) into text; list items become '• ' lines the UI splits into cards."""
+    if isinstance(val, str):
+        return val.strip()
+    if isinstance(val, list):
+        return "\n".join(f"• {x}" for x in val)
+    if isinstance(val, dict):
+        return "\n".join(f"• {k}: {v}" for k, v in val.items())
+    return default if val is None else str(val)
+
+
+def _facts(class_name: str, confidence: float, findings: dict[str, Any] | None) -> str:
+    facts = {"diagnosis": clean_class_name(class_name), "model_class": class_name, "calibrated_confidence_pct": round(confidence, 1)}
+    facts.update(findings or {})
+    return json.dumps(facts, ensure_ascii=False)[:3000]
 
 
 def get_xai_specific_explanation(
     class_name: str,
     confidence: float,
     xai_method: str = "gradcam",
+    findings: dict[str, Any] | None = None,
     api_key: str | None = None,
 ) -> dict[str, str]:
-    """Generates a context-aware Groq LLM explanation specific to the selected XAI technique.
-
-    Args:
-        class_name: Predicted plant disease category.
-        confidence: Prediction confidence percentage (0-100).
-        xai_method: Selected XAI attribution technique ('gradcam', 'gradcam_pp', 'saliency', 'smoothgrad', 'integrated_gradients', 'shap', 'lime', 'all').
-        api_key: Optional Groq API Key.
-
-    Returns:
-        dict[str, str]: Dictionary containing 'xai_method', 'heading', 'method_label', and 'explanation'.
-    """
-    disease_title = clean_class_name(class_name)
+    """Explains what the chosen attribution method shows for this specific image."""
     method_key = normalize_method_key(xai_method)
-    fallback_info = METHOD_SPECIFIC_FALLBACKS.get(method_key, METHOD_SPECIFIC_FALLBACKS["all"])
-    
-    groq_api_key = api_key or os.getenv("GROQ_API_KEY")
-
-    method_prompts = {
-        "gradcam": (
-            "Focus specifically on Grad-CAM's convolutional activation maps: explain which coarse spatial regions "
-            "(e.g. lesion clusters, chlorotic halos, necrotic centers) show high activation intensity in the last convolutional layer "
-            "and why these spatial regions are biologically relevant to this diagnosis."
-        ),
-        "gradcam_pp": (
-            "Focus specifically on Grad-CAM++ (Grad-CAM Plus Plus): explain how higher-order partial derivatives (second and third order) "
-            "weight the feature activations, enabling sharp localization of multiple discrete disease spots and smaller lesion clusters "
-            "across the leaf surface compared to standard Grad-CAM."
-        ),
-        "saliency": (
-            "Focus specifically on Vanilla Saliency Maps: explain how the direct pixel-level gradient magnitude (|∂y/∂x|) reveals "
-            "high-frequency edge transitions, vein junctions, and subtle discoloration boundaries that immediately influence "
-            "the neural network's classification score."
-        ),
-        "smoothgrad": (
-            "Focus specifically on SmoothGrad: explain how Gaussian noise averaging across 25 perturbed samples eliminates spurious gradient noise "
-            "to produce a clean, denoised pixel-level map of the true pathological lesion structures."
-        ),
-        "integrated_gradients": (
-            "Focus specifically on Integrated Gradients: explain the axiomatic pixel-level path attribution from a zero baseline, "
-            "highlighting fine-grained edge transitions, leaf vein boundaries, and positive vs negative pixel contributions "
-            "that distinguish the disease symptoms."
-        ),
-        "shap": (
-            "Focus specifically on SHAP Occlusion: explain game-theoretic Shapley value patch sensitivity, "
-            "how occluding specific symptomatic grid patches caused model confidence drops, and how this measures the marginal importance "
-            "of distinct leaf areas."
-        ),
-        "lime": (
-            "Focus specifically on LIME (Local Interpretable Model-agnostic Explanations): explain the SLIC superpixel segmentation "
-            "and local linear surrogate model fit across perturbations, highlighting which superpixel clusters actively supported the prediction."
-        ),
-        "all": (
-            "Provide a concise, clearly differentiated breakdown covering all 7 XAI attribution techniques: "
-            "Grad-CAM (spatial activation), Grad-CAM++ (multi-instance), Vanilla Saliency (pixel gradient), SmoothGrad (denoised saliency), "
-            "Integrated Gradients (path integral), SHAP (patch occlusion), and LIME (superpixel surrogate). "
-            "Use bullet points for each method."
-        ),
-    }
-
-    specific_guidance = method_prompts.get(method_key, method_prompts["all"])
-
-    if GROQ_AVAILABLE and groq_api_key:
-        try:
-            logger.info("Querying Groq LLM for method-specific XAI insight [%s] on '%s'...", method_key, disease_title)
-            client = Groq(api_key=groq_api_key, timeout=4.0)
-            
-            prompt = (
-                f"You are an expert agricultural plant pathologist and Explainable AI (XAI) computer vision researcher.\n\n"
-                f"Diagnostic Context:\n"
-                f"- Diagnosis: '{disease_title}'\n"
-                f"- Raw Model Class: '{class_name}'\n"
-                f"- Confidence: {confidence:.1f}%\n"
-                f"- Selected XAI Technique: '{fallback_info['title']}' ({method_key.upper()})\n\n"
-                f"Instructions:\n"
-                f"{specific_guidance}\n\n"
-                f"STRICT RULES:\n"
-                f"1. Only describe visual evidence that can reasonably be supported by this specific XAI technique and pathology.\n"
-                f"2. Do not invent symptoms, colors, or lesions not characteristic of {disease_title}.\n"
-                f"3. Keep the explanation focused, clear, and directly relevant (2-4 sentences or clean bullet points).\n"
-                f"4. Do NOT include generic conversational filler.\n\n"
-                f"Return ONLY a JSON object with this exact key:\n"
-                f'{{"explanation": "Your concise, method-specific explanation here"}}'
-            )
-
-            completion = client.chat.completions.create(
-                model=DEFAULT_GROQ_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                response_format={"type": "json_object"},
-            )
-
-            cleaned_text = _clean_json_text(completion.choices[0].message.content or "{}")
-            response_json = json.loads(cleaned_text)
-            raw_explanation = response_json.get("explanation", fallback_info["text"])
-
-            if isinstance(raw_explanation, dict):
-                lines = []
-                for k, v in raw_explanation.items():
-                    if isinstance(v, dict):
-                        sub_str = " | ".join(f"{sk}: {sv}" for sk, sv in v.items())
-                        lines.append(f"• {k}: {sub_str}")
-                    elif isinstance(v, list):
-                        lines.append(f"• {k}: {', '.join(str(item) for item in v)}")
-                    else:
-                        lines.append(f"• {k}: {v}")
-                explanation_text = "\n".join(lines)
-            elif isinstance(raw_explanation, list):
-                explanation_text = "\n".join(f"• {item}" for item in raw_explanation)
-            elif isinstance(raw_explanation, str):
-                explanation_text = raw_explanation.strip()
-            else:
-                explanation_text = str(raw_explanation)
-
-            return {
-                "xai_method": method_key,
-                "heading": fallback_info["heading"],
-                "method_label": fallback_info["title"],
-                "explanation": explanation_text,
-            }
-
-        except Exception as exc:
-            logger.warning("Groq API query for method-specific XAI notice: %s. Using fallback.", exc)
-
-    return {
-        "xai_method": method_key,
-        "heading": fallback_info["heading"],
-        "method_label": fallback_info["title"],
-        "explanation": fallback_info["text"],
-    }
-
-
-def _ensure_str(val: Any, default: str = "") -> str:
-    """Helper to convert any structured JSON field (list, dict, primitive) into a clean string."""
-    if isinstance(val, str):
-        return val.strip()
-    if isinstance(val, list):
-        return "\n".join(f"• {str(x)}" for x in val)
-    if isinstance(val, dict):
-        return "\n".join(f"• {k}: {v}" for k, v in val.items())
-    if val is None:
-        return default
-    return str(val)
+    title = METHOD_TITLES[method_key]
+    base = {"xai_method": method_key, "heading": f"WHAT THE AI SEES — {title.upper()}", "method_label": title}
+    prompt = (
+        f"Analysis facts for this leaf (JSON): {_facts(class_name, confidence, findings)}\n\n"
+        f"Method: {METHOD_FOCUS[method_key]}\n\n"
+        "Explain in 5-7 sentences: (1) how this method works in one plain sentence, (2) what its heatmap shows on "
+        "this leaf and why that is consistent or inconsistent with the diagnosis, using the measured damage, concept "
+        "scores, counterfactual drop and quality numbers where present, (3) one limitation of this method, and "
+        "(4) what the grower should check on the real leaf. Do not claim the heatmap proves the diagnosis.\n"
+        'Return {"explanation": "..."}'
+    )
+    try:
+        return {**base, "explanation": _ensure_str(_ask_groq(prompt, api_key, 1500).get("explanation"))}
+    except Exception as exc:
+        logger.warning("Groq explanation for %s failed: %s", method_key, exc)
+        return {**base, "explanation": f"The AI explanation could not be generated right now ({type(exc).__name__}). The heatmap itself is unaffected."}
 
 
 def get_disease_explanation(
     class_name: str,
     confidence: float,
-    xai_method: str = "all",
+    findings: dict[str, Any] | None = None,
     api_key: str | None = None,
 ) -> dict[str, Any]:
-    """Generates structured disease explanation, XAI visual feature attribution, cure, prevention, and precautions."""
+    """Disease guidance for this diagnosis, written around the measured findings of this image."""
     disease_title = clean_class_name(class_name)
-    groq_api_key = api_key or os.getenv("GROQ_API_KEY")
-
-    key = class_name.lower()
-    fallback_data = FALLBACK_KNOWLEDGE_BASE.get(key, FALLBACK_KNOWLEDGE_BASE["default"])
-
-    if GROQ_AVAILABLE and groq_api_key:
-        try:
-            logger.info("Querying Groq LLM for unified pathology & XAI guidance on '%s'...", disease_title)
-            client = Groq(api_key=groq_api_key, timeout=4.0)
-            
-            prompt = (
-                f"You are an expert agricultural botanist, plant pathologist, and Explainable AI (XAI) researcher.\n"
-                f"A leaf image was analyzed and diagnosed with: '{disease_title}' (Class: '{class_name}', Confidence: {confidence:.1f}%).\n\n"
-                f"Provide a concise, accurate JSON response with EXACTLY the following keys:\n"
-                f"{{\n"
-                f'  "explanation": "2-3 sentence scientific explanation of the disease pathology.",\n'
-                f'  "xai_feature_explanation": "2-3 sentences explaining how visual attribution heatmaps (Grad-CAM++, SHAP, LIME) identify key foliar lesions, chlorosis, and textural anomalies.",\n'
-                f'  "cure": "2-3 recommended organic and chemical treatment methods.",\n'
-                f'  "prevention": "2-3 long-term agricultural prevention strategies.",\n'
-                f'  "precautions": "2-3 immediate precautions to avoid spreading infection."\n'
-                f"}}\n\n"
-                f"Return ONLY valid JSON."
-            )
-
-            completion = client.chat.completions.create(
-                model=DEFAULT_GROQ_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.2,
-                response_format={"type": "json_object"},
-            )
-
-            cleaned_content = _clean_json_text(completion.choices[0].message.content or "{}")
-            response_json = json.loads(cleaned_content)
-            return {
-                "disease_title": disease_title,
-                "explanation": _ensure_str(response_json.get("explanation"), fallback_data["explanation"]),
-                "xai_feature_explanation": _ensure_str(response_json.get("xai_feature_explanation"), fallback_data["xai_feature_explanation"]),
-                "cure": _ensure_str(response_json.get("cure"), fallback_data["cure"]),
-                "prevention": _ensure_str(response_json.get("prevention"), fallback_data["prevention"]),
-                "precautions": _ensure_str(response_json.get("precautions"), fallback_data["precautions"]),
-            }
-
-        except Exception as exc:
-            logger.warning("Groq API unified query notice: %s. Falling back to knowledge base.", exc)
-
-    return {
-        "disease_title": disease_title,
-        "explanation": fallback_data["explanation"],
-        "xai_feature_explanation": fallback_data["xai_feature_explanation"],
-        "cure": fallback_data["cure"],
-        "prevention": fallback_data["prevention"],
-        "precautions": fallback_data["precautions"],
-    }
-
+    prompt = (
+        f"Analysis facts for this leaf (JSON): {_facts(class_name, confidence, findings)}\n\n"
+        "Write the guidance as a JSON object with exactly these keys:\n"
+        '"explanation": 5-7 sentences. The causal organism or condition, how it spreads and what weather or '
+        "conditions favour it, how it harms the plant, then what the measured findings for THIS leaf say "
+        "(damage level, stage, confidence, uncertainty). If the model is unsure, say which similar diseases to rule out.\n"
+        '"signs": list of 4-6 specific things to look for on the real leaf, stem and fruit.\n'
+        '"xai_feature_explanation": 4-6 sentences on what the heatmaps, concept scores and counterfactual test '
+        "show for this image and how much to trust them given the quality numbers.\n"
+        '"cure": list of 4-6 treatment steps in order: removal and cultural steps first, then named active-ingredient '
+        "classes (organic and conventional) with timing and repeat interval. State that labels and local rules decide. Call only copper, sulfur, Bacillus-based products, potassium bicarbonate and horticultural or neem oils organic; chlorothalonil, mancozeb and azoxystrobin are conventional.\n"
+        '"prevention": list of 4-6 season-long practices.\n'
+        '"precautions": list of 4-5 things to do in the next 24-48 hours to stop spread.\n'
+        "If the diagnosis is a healthy leaf, make the guidance about keeping it healthy and what early signs to scout for."
+    )
+    try:
+        data = _ask_groq(prompt, api_key, 3000)
+        return {
+            "disease_title": disease_title,
+            "source": "groq",
+            **{k: _ensure_str(data.get(k)) for k in ("explanation", "signs", "xai_feature_explanation", "cure", "prevention", "precautions")},
+        }
+    except Exception as exc:
+        logger.warning("Groq guidance for %s failed: %s", class_name, exc)
+        note = f"The AI guidance could not be generated right now ({type(exc).__name__}). Try again in a moment; the diagnosis and measurements are unaffected."
+        return {"disease_title": disease_title, "source": "unavailable", "explanation": note, "signs": "", "xai_feature_explanation": note,
+                "cure": note, "prevention": note, "precautions": note}

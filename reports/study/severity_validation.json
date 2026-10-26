@@ -1,0 +1,23 @@
+{
+  "specificity_real_healthy_leaves": {
+    "n": 120,
+    "not_measurable": 0,
+    "mean_pct": 1.28,
+    "median_pct": 0.1,
+    "p95_pct": 5.67,
+    "share_below_5pct": 0.933
+  },
+  "accuracy_synthetic_lesions": {
+    "n": 178,
+    "target_pct": [
+      5,
+      10,
+      25
+    ],
+    "mean_absolute_error_pct_points": 1.57,
+    "pearson_r": 0.968,
+    "stage_agreement": 0.938,
+    "mean_signed_error_pct_points": 1.42
+  },
+  "note": "Synthetic brown lesions on healthy leaves; no expert-annotated lesion masks exist for PlantVillage."
+}

@@ -1,96 +1,109 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import {
   ArrowRight, Cpu,
   ShieldCheck, Microscope, Sparkles,
   Layers, Zap, Upload
 } from 'lucide-react';
+import { HEADLINE } from '../generated/metrics';
 
 const STUDIO_SPECS = [
-  { label: 'Active Architecture', value: 'EfficientNet-B0', badge: 'Compound Scaling' },
-  { label: 'Test Accuracy', value: '99.48%', badge: '18,609 Test Leaves' },
-  { label: 'Calibration (ECE)', value: '1.17%', badge: 'Medical-Grade' },
-  { label: 'Fairness Parity', value: '0.9923', badge: 'Equitable' },
-  { label: 'MPS Latency', value: '20.8 ms', badge: 'Edge Realtime' },
+  { label: 'AI Model', value: 'EfficientNet-B0', badge: 'Accurate & Efficient' },
+  { label: 'Accuracy', value: HEADLINE.accuracy, badge: `${HEADLINE.testImagesLabel} Test Photos` },
+  { label: 'Calibration (ECE)', value: HEADLINE.ece, badge: 'Lower Is Better' },
+  { label: 'Fairness Parity', value: HEADLINE.fairnessRatio, badge: 'Across 3 Crops' },
+  { label: 'Latency', value: HEADLINE.latency, badge: 'Per Prediction' },
 ];
 
 const STUDIO_CONSOLES = [
   {
     id: 'diagnostic',
-    title: 'Diagnostic & XAI Studio',
+    title: 'Diagnose a Leaf',
     tag: 'Instant Diagnosis',
     route: '/analyze',
     icon: <Microscope size={20} color="#10b981" />,
-    desc: '7-engine attribution suite (Grad-CAM, Grad-CAM++, Saliency, SmoothGrad, Integrated Gradients, SHAP, LIME) with Groq clinical pathology reasoning.',
-    stats: '7 Attribution Engines • Sub-Second Diagnosis'
+    desc: 'Upload a photo and get an instant diagnosis. See exactly which parts of the leaf the AI focused on, in 7 different ways, and get a treatment plan explained in plain language.',
+    stats: '7 ways to see the AI\'s reasoning • Instant results'
   },
   {
     id: 'benchmarks',
-    title: 'Architecture & Benchmarks',
-    tag: 'Multi-Model',
+    title: 'How the AI Works',
+    tag: 'Model Details',
     route: '/benchmarks',
     icon: <Cpu size={20} color="#6366f1" />,
-    desc: 'Empirical multi-model profiling across EfficientNet-B0, MobileNetV3-Large, ResNet-50, and DenseNet-121 with interactive Pareto frontier.',
-    stats: '4 Architectures • FLOPs & Latency Tradeoffs'
+    desc: 'See how accurate and fast our AI model really is, and why we built it this way — no guesswork, just real, measured numbers.',
+    stats: `${HEADLINE.accuracy} accurate • Fast enough for real-time use`
   },
   {
     id: 'telemetry',
-    title: 'Trust & Safety (10D Telemetry)',
-    tag: 'Trustworthiness Audit',
+    title: 'Can We Trust It?',
+    tag: 'Trust Report',
     route: '/telemetry',
     icon: <ShieldCheck size={20} color="#f59e0b" />,
-    desc: '10-Dimension stress telemetry, Monte Carlo epistemic uncertainty bounds, out-of-distribution detection, and equalized odds fairness parity.',
-    stats: '10 Robustness Dimensions • 1.17% ECE'
+    desc: 'We stress-tested this AI against blurry photos, bad lighting, and unfair bias across crops — so you know exactly when to trust a result.',
+    stats: '10 safety checks • Fair across every crop'
   },
 ];
 
 const SAMPLE_SPECIMENS = [
-  { id: '1', name: 'Tomato Early Blight', crop: 'Tomato', status: 'Fungal Necrosis', conf: '99.82%' },
-  { id: '2', name: 'Potato Late Blight', crop: 'Potato', status: 'Oomycete Infection', conf: '99.41%' },
-  { id: '3', name: 'Bell Pepper Bacterial Spot', crop: 'Pepper', status: 'Bacterial Foliar', conf: '99.87%' },
-  { id: '4', name: 'Tomato Healthy Leaf', crop: 'Tomato', status: 'Control Specimen', conf: '99.79%' },
+  { id: 'tomato_early_blight', name: 'Tomato Early Blight', crop: 'Tomato', status: 'Fungal Disease', conf: '99.97%' },
+  { id: 'potato_late_blight', name: 'Potato Late Blight', crop: 'Potato', status: 'Water Mold Disease', conf: '99.88%' },
+  { id: 'pepper_bacterial_spot', name: 'Bell Pepper Bacterial Spot', crop: 'Pepper', status: 'Bacterial Disease', conf: '99.95%' },
+  { id: 'tomato_healthy', name: 'Tomato Healthy Leaf', crop: 'Tomato', status: 'Healthy Leaf', conf: '99.96%' },
 ];
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0 },
+};
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [selectedSample, setSelectedSample] = useState<string>('1');
+  const [selectedSample, setSelectedSample] = useState<string>('tomato_early_blight');
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
-      {/* ── STUDIO HEADER / COMMAND BANNER ── */}
-      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 24px 28px' }}>
+      {/* ── HERO ── */}
+      <motion.section
+        initial="hidden"
+        animate="show"
+        variants={fadeUp}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 24px 28px' }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <span className="badge-clean badge-emerald" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block', marginRight: 6 }} />
-            Pathology Studio v1.2.0 • Active
-          </span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Google Stitch Inspired Studio Canvas
+            <span className="live-pulse-dot" />
+            AI Model Online
           </span>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 24 }}>
           <div>
             <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.035em', margin: '0 0 12px', lineHeight: 1.15 }}>
-              PhytoShield AI <span style={{ color: '#10b981' }}>Pathology Studio</span>
+              Know what's wrong with your plant <span style={{ color: '#10b981' }}>in seconds</span>
             </h1>
-            <p style={{ color: 'var(--text-body)', fontSize: '1.1rem', maxWidth: 720, margin: 0, lineHeight: 1.6 }}>
-              Explainable deep learning diagnostic intelligence for high-consequence crop protection. 
-              Delivers fine-grained foliar disease discrimination, 7-engine spatial attribution, and automated clinical prescriptions.
+            <p style={{ color: 'var(--text-body)', fontSize: '1.1rem', maxWidth: 680, margin: 0, lineHeight: 1.6 }}>
+              Take a photo of a leaf and get an instant diagnosis. Our AI shows you exactly what it
+              sees, explains its reasoning in plain terms, and suggests a treatment plan.
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
-            <button 
+            <motion.button
+              whileHover={{ scale: 1.03, y: -1 }}
+              whileTap={{ scale: 0.98 }}
               className="btn-try"
               onClick={() => navigate('/analyze')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', fontSize: '0.95rem' }}
             >
-              Open Studio Workspace
+              Diagnose a Leaf Now
               <ArrowRight size={16} />
-            </button>
-            <button 
-              className="segmented-tab-btn"
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03, y: -1 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/benchmarks')}
               style={{
                 display: 'inline-flex',
@@ -106,14 +119,21 @@ export default function HomePage() {
               }}
             >
               <Cpu size={16} />
-              View Benchmarks
-            </button>
+              See How It Works
+            </motion.button>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* ── SCIENTIFIC TELEMETRY STRIP ── */}
-      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 36px' }}>
+      {/* ── STAT STRIP ── */}
+      <motion.section
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: '-60px' }}
+        variants={fadeUp}
+        transition={{ duration: 0.5, delay: 0.1 }}
+        style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 36px' }}
+      >
         <div className="card-minimal" style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16 }}>
           {STUDIO_SPECS.map(spec => (
             <div key={spec.label} style={{ borderRight: '1px solid var(--border-light)', paddingRight: 16 }}>
@@ -129,20 +149,26 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-      </section>
+      </motion.section>
 
-      {/* ── 4 CORE STUDIO CONSOLES (MATCHING STITCH SCREENS) ── */}
+      {/* ── 3 CORE CONSOLES ── */}
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 36px' }}>
         <div style={{ marginBottom: 16 }}>
           <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Pathology Studio Consoles
+            What you can do here
           </span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: 18 }}>
-          {STUDIO_CONSOLES.map(c => (
-            <div 
+          {STUDIO_CONSOLES.map((c, i) => (
+            <motion.div
               key={c.id}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: '-40px' }}
+              variants={fadeUp}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
+              whileHover={{ y: -4 }}
               onClick={() => navigate(c.route)}
               className="card-minimal"
               style={{
@@ -151,7 +177,6 @@ export default function HomePage() {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'all 0.2s ease',
                 position: 'relative'
               }}
             >
@@ -179,41 +204,51 @@ export default function HomePage() {
                 </span>
                 <ArrowRight size={14} color="var(--text-muted)" />
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </section>
 
-      {/* ── QUICK SPECIMEN DIAGNOSTIC LAUNCHPAD ── */}
-      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 36px' }}>
+      {/* ── TRY IT NOW ── */}
+      <motion.section
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: '-60px' }}
+        variants={fadeUp}
+        transition={{ duration: 0.5 }}
+        style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 36px' }}
+      >
         <div className="card-minimal" style={{ padding: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
             <div>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 600, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Zap size={18} color="#10b981" />
-                Verified Test Specimen Launchpad
+                Try It Now — No Upload Needed
               </h3>
               <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', margin: 0 }}>
-                Select a verified pathological specimen from the PlantVillage evaluation set to run live attribution inference.
+                Pick one of these real leaf photos to see how the AI diagnoses it.
               </p>
             </div>
 
-            <button 
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
               className="btn-try"
               onClick={() => navigate('/analyze')}
               style={{ fontSize: '0.85rem', padding: '8px 16px' }}
             >
-              Upload Custom Leaf Photo
+              Upload Your Own Photo
               <Upload size={14} style={{ marginLeft: 6 }} />
-            </button>
+            </motion.button>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14 }}>
             {SAMPLE_SPECIMENS.map(s => {
               const isSel = selectedSample === s.id;
               return (
-                <div
+                <motion.div
                   key={s.id}
+                  whileHover={{ y: -2 }}
                   onClick={() => setSelectedSample(s.id)}
                   style={{
                     padding: 16,
@@ -221,7 +256,7 @@ export default function HomePage() {
                     border: isSel ? '1.5px solid #10b981' : '1px solid var(--border-light)',
                     background: isSel ? 'var(--bg-subtle)' : 'transparent',
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease'
+                    transition: 'border-color 0.15s ease, background-color 0.15s ease'
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -230,7 +265,7 @@ export default function HomePage() {
                   </div>
                   <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: 4 }}>{s.name}</div>
                   <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{s.status}</div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -239,47 +274,56 @@ export default function HomePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Sparkles size={18} color="#6366f1" />
               <div style={{ fontSize: '0.85rem', color: 'var(--text-body)' }}>
-                Selected: <strong>{SAMPLE_SPECIMENS.find(s => s.id === selectedSample)?.name}</strong> — Ready for 7-Engine XAI Attribution.
+                Selected: <strong>{SAMPLE_SPECIMENS.find(s => s.id === selectedSample)?.name}</strong> — ready to analyze.
               </div>
             </div>
 
-            <button 
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
               className="btn-try"
-              onClick={() => navigate('/analyze')}
+              onClick={() => navigate(`/analyze?sample=${selectedSample}`)}
               style={{ fontSize: '0.84rem', padding: '6px 14px' }}
             >
-              Analyze Specimen Now →
-            </button>
+              Analyze This Leaf →
+            </motion.button>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* ── RESEARCH SUMMARY FOOTER CARD ── */}
-      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+      {/* ── WHY TRUST US ── */}
+      <motion.section
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: '-60px' }}
+        variants={fadeUp}
+        transition={{ duration: 0.5 }}
+        style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}
+      >
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
           <div className="card-minimal" style={{ padding: 24 }}>
             <h4 style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <ShieldCheck size={16} color="#10b981" />
-              Empirical Authenticity Verified
+              Real Data, No Guessing
             </h4>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-body)', margin: 0, lineHeight: 1.5 }}>
-              All metrics reported are empirically extracted from real evaluations on 18,609 validation specimens. 
-              Zero synthetic, simulated, or literature placeholder figures.
+              Every number on this site comes from real tests on {HEADLINE.testImagesLabel} leaf photos the AI never saw while learning.
+              Nothing is estimated or made up.
             </p>
           </div>
 
           <div className="card-minimal" style={{ padding: 24 }}>
             <h4 style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Layers size={16} color="#6366f1" />
-              Research-Grade Computer Vision
+              Built on Proven Science
             </h4>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-body)', margin: 0, lineHeight: 1.5 }}>
-              Satisfies axiomatic completeness (Integrated Gradients), occlusion-based cooperative game fairness (SHAP),
-              and multiple-lesion sensitivity (Grad-CAM++).
+              Uses well-established AI techniques (like Grad-CAM++ and SHAP) that researchers
+              trust to explain how a model made its decision — not a black box.
             </p>
           </div>
         </div>
-      </section>
+      </motion.section>
     </div>
   );
 }

@@ -1,0 +1,9 @@
+Scenario,Accuracy (%),Mean confidence,Explanation ρ,Explanation top-20% IoU,Prediction flips (%)
+clean,98.133,0.966,1.0,1.0,0.0
+gaussian_noise_0.10,24.944,0.371,0.623,0.358,80.952
+gaussian_blur_r3,16.511,0.861,0.722,0.437,91.429
+brightness_x0.5,96.073,0.934,0.965,0.825,4.762
+brightness_x1.5,94.046,0.929,0.947,0.825,6.667
+jpeg_q15,87.802,0.838,0.939,0.786,9.524
+occlusion_25pct,86.933,0.804,0.737,0.283,17.143
+background_removed,74.831,0.802,0.916,0.744,25.714

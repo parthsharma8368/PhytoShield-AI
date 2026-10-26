@@ -17,59 +17,102 @@ from PIL import Image
 logger = logging.getLogger("evaluation.decision_support")
 
 
+SEG_SIZE = 256
+
+
+def segment_leaf_and_lesions(original_image: Image.Image) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+    """Colour-based leaf and lesion masks on a 256x256 copy, independent of the CNN.
+
+    1. Leaf: GrabCut seeded by the large green regions (the border band is background), holes filled.
+    2. Lesion: leaf pixels that are not healthy green and are tissue-coloured (yellow, brown, red), near-black,
+       or pale (mould, bleaching). Grey/purple shading is ignored, and a 4 px band at the leaf edge is dropped
+       because it holds soft shadow rather than tissue.
+
+    Returns (leaf_mask, lesion_mask, rgb) or None when no leaf can be isolated.
+    """
+    rgb = np.array(original_image.convert("RGB").resize((SEG_SIZE, SEG_SIZE), Image.BILINEAR))
+    hsv = cv2.cvtColor(cv2.medianBlur(rgb, 5), cv2.COLOR_RGB2HSV)
+    hue, sat, val = (hsv[..., i].astype(np.float32) for i in range(3))
+    green = (hue >= 30) & (hue <= 95) & (sat >= 30) & (val >= 25)
+
+    core = ((hue >= 30) & (hue <= 95) & (sat >= 50) & (val >= 35)).astype(np.uint8)
+    core = cv2.morphologyEx(core, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(core)
+    big = np.isin(labels, [i for i in range(1, n) if stats[i, cv2.CC_STAT_AREA] >= 0.02 * SEG_SIZE ** 2])
+    if not big.any():
+        return None
+
+    gc = np.full(core.shape, cv2.GC_PR_BGD, np.uint8)
+    gc[cv2.dilate(big.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0] = cv2.GC_PR_FGD
+    gc[cv2.erode(big.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0] = cv2.GC_FGD
+    m = SEG_SIZE // 20
+    gc[:m] = gc[-m:] = cv2.GC_BGD
+    gc[:, :m] = gc[:, -m:] = cv2.GC_BGD
+    if not (gc == cv2.GC_FGD).any():
+        return None
+    cv2.grabCut(rgb, gc, None, np.zeros((1, 65)), np.zeros((1, 65)), 4, cv2.GC_INIT_WITH_MASK)
+
+    leaf = ((gc == cv2.GC_FGD) | (gc == cv2.GC_PR_FGD)).astype(np.uint8)
+    leaf = cv2.morphologyEx(leaf, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(leaf)
+    if n < 2:
+        return None
+    leaf = (labels == 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])).astype(np.uint8)
+    contours, _ = cv2.findContours(leaf, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    filled = np.zeros_like(leaf)
+    cv2.drawContours(filled, contours, -1, 1, -1)
+    if filled.sum() < 0.03 * SEG_SIZE ** 2:
+        return None
+
+    inner = cv2.erode(filled, np.ones((9, 9), np.uint8)) > 0
+    tissue_colour = (((hue <= 32) | (hue >= 165)) & (sat >= 40)) | (val < 25) | ((sat < 30) & (val > 170))
+    lesion = inner & ~green & tissue_colour
+    lesion = cv2.morphologyEx(lesion.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+    return filled.astype(bool), lesion, rgb
+
+
 def quantify_foliar_lesion_severity(
     original_image: Image.Image,
-    heatmap: np.ndarray,
+    heatmap: np.ndarray | None = None,
     threshold: float = 0.45,
 ) -> dict[str, Any]:
-    """Quantifies foliar lesion surface area coverage percentage from attribution map.
+    """Share of the leaf covered by discoloured tissue, measured from pixel colour (not from the CNN heatmap).
 
-    Uses Excess Green Index (ExG) to isolate the leaf blade foreground from non-leaf
-    background, and measures the proportion of leaf tissue covered by high-intensity
-    attribution hotspots.
-
-    Args:
-        original_image: Raw PIL leaf image.
-        heatmap: 2D attribution heatmap in [0, 1].
-        threshold: Heatmap intensity cutoff defining symptomatic diseased tissue.
-
-    Returns:
-        dict[str, Any]: Affected surface percentage, total foliar pixels, lesion pixels.
+    Also reports how much of the CNN's attention hotspot (heatmap >= threshold) falls on the leaf and on lesions,
+    so the severity number and the explanation can be cross-checked. ``affected_leaf_percentage`` is None when no
+    leaf can be isolated from the background.
     """
-    img_np = np.array(original_image.convert("RGB"))
-    h, w, _ = img_np.shape
+    seg = segment_leaf_and_lesions(original_image)
+    if seg is None:
+        return {"affected_leaf_percentage": None, "total_leaf_pixels": 0, "lesion_pixels": 0,
+                "attention_on_leaf": None, "attention_on_lesion": None, "yellow_halo": False}
+    leaf, lesion, rgb = seg
+    leaf_px, lesion_px = int(leaf.sum()), int(lesion.sum())
 
-    # 1. Segment leaf blade foreground using ExG (2G - R - B)
-    r = img_np[:, :, 0].astype(np.float32)
-    g = img_np[:, :, 1].astype(np.float32)
-    b = img_np[:, :, 2].astype(np.float32)
-    exg = 2.0 * g - r - b
+    attention_on_leaf = attention_on_lesion = None
+    if heatmap is not None:
+        hot = cv2.resize(np.asarray(heatmap, dtype=np.float32), (SEG_SIZE, SEG_SIZE)) >= threshold
+        if hot.any():
+            attention_on_leaf = float((hot & leaf).sum() / hot.sum())
+            attention_on_lesion = float((hot & cv2.dilate(lesion.astype(np.uint8), np.ones((9, 9), np.uint8)).astype(bool)).sum() / hot.sum())
 
-    # Otsu threshold on ExG to get leaf mask
-    exg_norm = cv2.normalize(exg, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-    _, leaf_mask = cv2.threshold(exg_norm, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    total_leaf_pixels = int(np.sum(leaf_mask > 0))
-
-    if total_leaf_pixels < 100:
-        total_leaf_pixels = h * w  # Fallback if segmentation fails
-
-    # 2. Resize heatmap and count high-attribution lesion pixels on leaf
-    heatmap_resized = cv2.resize(heatmap, (w, h))
-    lesion_mask = (heatmap_resized >= threshold) & (leaf_mask > 0)
-    lesion_pixels = int(np.sum(lesion_mask))
-
-    affected_pct = float((lesion_pixels / total_leaf_pixels) * 100.0)
-    affected_pct = round(max(0.5, min(95.0, affected_pct)), 1)
+    hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+    yellow = (hsv[..., 0] >= 18) & (hsv[..., 0] <= 34) & (hsv[..., 1] >= 60) & (hsv[..., 2] >= 90)
+    ring = cv2.dilate(lesion.astype(np.uint8), np.ones((15, 15), np.uint8)).astype(bool) & leaf & ~lesion
+    yellow_halo = bool(ring.sum() > 0 and (yellow & ring).sum() / ring.sum() >= 0.05)
 
     return {
-        "affected_leaf_percentage": affected_pct,
-        "total_leaf_pixels": total_leaf_pixels,
-        "lesion_pixels": lesion_pixels,
+        "affected_leaf_percentage": round(100.0 * lesion_px / leaf_px, 1),
+        "total_leaf_pixels": leaf_px,
+        "lesion_pixels": lesion_px,
+        "attention_on_leaf": attention_on_leaf,
+        "attention_on_lesion": attention_on_lesion,
+        "yellow_halo": yellow_halo,
     }
 
 
 def determine_disease_staging(
-    affected_pct: float,
+    affected_pct: float | None,
     class_name: str,
 ) -> dict[str, Any]:
     """Determines clinical disease severity stage and agronomic urgency.
@@ -81,6 +124,16 @@ def determine_disease_staging(
     Returns:
         dict[str, Any]: Stage name, stage level (1-3), severity color, and prognosis.
     """
+    if affected_pct is None:
+        return {
+            "stage_level": -1,
+            "stage_name": "Severity not measurable",
+            "severity_tag": "Leaf could not be separated from the background",
+            "color": "#94a3b8",
+            "urgency": "Retake the photo: one leaf, plain background, good light",
+            "prognosis": "Unknown from this photo.",
+        }
+
     if "healthy" in class_name.lower():
         return {
             "stage_level": 0,
@@ -142,37 +195,41 @@ def generate_decision_support_summary(
     staging = determine_disease_staging(affected_pct, class_name)
 
     is_healthy = "healthy" in class_name.lower()
+    on_leaf, on_lesion = severity_info["attention_on_leaf"], severity_info["attention_on_lesion"]
+    measured = affected_pct is not None
 
-    # Agronomist Validation Checklist
+    # Checklist items are computed from this photo, not preset. Each one can fail.
     checklist = [
         {
             "id": "chk_lesion_alignment",
             "title": "Visual Lesion Alignment",
-            "description": "Do high-energy XAI hotspots align directly with visible leaf spot discoloration?",
-            "verified": True,
+            "description": "Do the AI hotspots sit on visibly discoloured tissue? (needs at least 1% discoloured leaf and 50% of the hotspot on it)",
+            "verified": bool(measured and affected_pct >= 1.0 and on_lesion is not None and on_lesion >= 0.5),
         },
         {
             "id": "chk_halo_presence",
             "title": "Chlorotic Halo Verification",
-            "description": "Is there visible yellowing margin around the necrotic lesion center?",
-            "verified": not is_healthy and affected_pct > 5.0,
+            "description": "Is there yellowing in a ring around the discoloured spots? (measured from colour)",
+            "verified": bool(measured and not is_healthy and severity_info["yellow_halo"]),
         },
         {
             "id": "chk_background_isolated",
             "title": "Background Immunity",
-            "description": "Has the AI correctly disregarded table, soil, or background shadows?",
-            "verified": True,
+            "description": "Is at least 85% of the AI hotspot on the leaf rather than the table, soil or shadow?",
+            "verified": bool(on_leaf is not None and on_leaf >= 0.85),
         },
         {
             "id": "chk_canopy_spread",
             "title": "Canopy Threshold Exceeded",
-            "description": "Does foliar damage exceed the 10% economic threshold for systemic spraying?",
-            "verified": affected_pct >= 10.0,
+            "description": "Does measured damage exceed the 10% level used for systemic spraying?",
+            "verified": bool(measured and affected_pct >= 10.0),
         },
     ]
 
     # Specific Farm Triage Actions
-    if is_healthy:
+    if not measured:
+        triage_actions = ["Retake the photo with one leaf filling the frame on a plain background, then analyse again."]
+    elif is_healthy:
         triage_actions = [
             "Maintain current drip irrigation and balanced nitrogen-potassium feeding.",
             "Continue weekly visual scouting of lower canopy leaves.",
@@ -203,9 +260,8 @@ def generate_decision_support_summary(
         "validation_checklist": checklist,
         "triage_actions": triage_actions,
         "decision_impact_summary": (
-            f"XAI attribution enabled quantitative foliar damage estimation ({affected_pct}% coverage), "
-            f"classifying the infection as '{staging['stage_name']}'. "
-            f"This equips the grower to avoid indiscriminate pesticide overuse and selectively apply "
-            f"targeted treatments strictly where pathological necessity is established."
+            f"Colour analysis found {affected_pct}% of the leaf discolured, which places it at '{staging['stage_name']}'."
+            if measured else
+            "The leaf could not be separated from the background, so no damage estimate is given."
         ),
     }

@@ -11,16 +11,16 @@ export default function ClinicalIntelligenceHub({
   const [activeTab, setActiveTab] = useState<ClinicalTab>('pathology');
 
   const tabs: { id: ClinicalTab; label: string; icon: React.ReactNode; color: string }[] = [
-    { id: 'pathology',   label: 'Pathology & Biology', icon: <Dna size={14} />,         color: '#00c4cc' },
-    { id: 'treatment',   label: 'Treatment & Rx',      icon: <Pill size={14} />,        color: '#8b5cf6' },
-    { id: 'prevention',  label: 'Prevention',          icon: <ShieldCheck size={14} />, color: '#10b981' },
-    { id: 'precautions', label: 'Field Precautions',   icon: <AlertTriangle size={14} />, color: '#f59e0b' },
+    { id: 'pathology',   label: 'About the Disease', icon: <Dna size={14} />,         color: '#00c4cc' },
+    { id: 'treatment',   label: 'Treatment',         icon: <Pill size={14} />,        color: '#8b5cf6' },
+    { id: 'prevention',  label: 'Prevention',        icon: <ShieldCheck size={14} />, color: '#10b981' },
+    { id: 'precautions', label: 'Precautions',       icon: <AlertTriangle size={14} />, color: '#f59e0b' },
   ];
 
   const treatmentBullets  = parseBulletPoints(insight.cure);
   const preventionBullets = parseBulletPoints(insight.prevention);
   const precautionBullets = parseBulletPoints(insight.precautions);
-  const pathologyBullets  = parseBulletPoints(insight.explanation);
+  const pathologyBullets  = parseBulletPoints(insight.signs || insight.explanation);
 
   return (
     <div className="neo-hub-card">
@@ -31,8 +31,8 @@ export default function ClinicalIntelligenceHub({
               <Pill size={15} />
             </div>
             <div>
-              <h3 className="neo-hub-title">Pathology & Agronomic Intelligence</h3>
-              <p className="neo-hub-subtitle">Botanical disease mechanism, treatment protocols & prevention strategies</p>
+              <h3 className="neo-hub-title">About This Disease</h3>
+              <p className="neo-hub-subtitle">What it is, how to treat it, and how to stop it from coming back</p>
             </div>
           </div>
         </div>
@@ -65,14 +65,14 @@ export default function ClinicalIntelligenceHub({
           <div className="neo-tab-pane">
             <div className="neo-pane-head">
               <span className="neo-pane-pill" style={{ background: 'rgba(0,196,204,0.12)', color: '#00c4cc' }}>
-                Biological Disease Pathology
+                What's Happening
               </span>
             </div>
 
             <div className="neo-grid-2col">
               <div className="neo-card-sub">
                 <div className="neo-card-sub-title" style={{ color: '#00c4cc' }}>
-                  <Dna size={14} /> Pathogen & Biology Overview
+                  <Dna size={14} /> What's Causing This
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-body)', lineHeight: 1.65 }}>
                   {insight.explanation}
@@ -81,7 +81,7 @@ export default function ClinicalIntelligenceHub({
 
               <div className="neo-card-sub">
                 <div className="neo-card-sub-title" style={{ color: '#00b87c' }}>
-                  <Activity size={14} /> Diagnostic Symptoms & Markers
+                  <Activity size={14} /> Signs to Look For
                 </div>
                 <div className="neo-bullet-list">
                   {pathologyBullets.map((b, i) => (
@@ -100,7 +100,7 @@ export default function ClinicalIntelligenceHub({
           <div className="neo-tab-pane">
             <div className="neo-pane-head">
               <span className="neo-pane-pill" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>
-                Agronomic Treatment & Cure Protocol
+                How to Treat It
               </span>
             </div>
 
@@ -111,7 +111,7 @@ export default function ClinicalIntelligenceHub({
                     {idx + 1}
                   </div>
                   <div className="neo-step-content">
-                    <div className="neo-step-title">Actionable Recommendation #{idx + 1}</div>
+                    <div className="neo-step-title">Step {idx + 1}</div>
                     <div className="neo-step-desc">{t}</div>
                   </div>
                 </div>
@@ -124,7 +124,7 @@ export default function ClinicalIntelligenceHub({
           <div className="neo-tab-pane">
             <div className="neo-pane-head">
               <span className="neo-pane-pill" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
-                Long-Term Prevention Strategies
+                How to Prevent It Next Time
               </span>
             </div>
 
@@ -135,7 +135,7 @@ export default function ClinicalIntelligenceHub({
                     <ShieldCheck size={14} />
                   </div>
                   <div className="neo-step-content">
-                    <div className="neo-step-title">Defense Strategy #{idx + 1}</div>
+                    <div className="neo-step-title">Tip {idx + 1}</div>
                     <div className="neo-step-desc">{p}</div>
                   </div>
                 </div>
@@ -148,7 +148,7 @@ export default function ClinicalIntelligenceHub({
           <div className="neo-tab-pane">
             <div className="neo-pane-head">
               <span className="neo-pane-pill" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
-                Immediate Field Precautions
+                Do This Right Away
               </span>
             </div>
 
@@ -159,7 +159,7 @@ export default function ClinicalIntelligenceHub({
                     <AlertTriangle size={14} />
                   </div>
                   <div className="neo-step-content">
-                    <div className="neo-step-title" style={{ color: '#f59e0b' }}>Precautionary Rule #{idx + 1}</div>
+                    <div className="neo-step-title" style={{ color: '#f59e0b' }}>Precaution {idx + 1}</div>
                     <div className="neo-step-desc">{item}</div>
                   </div>
                 </div>

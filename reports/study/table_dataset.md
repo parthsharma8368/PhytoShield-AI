@@ -1,0 +1,18 @@
+| Class                                       |   Train |   Validation |   Test |   Total |
+|:--------------------------------------------|--------:|-------------:|-------:|--------:|
+| Pepper bell Bacterial spot                  |     697 |          149 |    151 |     997 |
+| Pepper bell healthy                         |    1034 |          221 |    223 |    1478 |
+| Potato Early blight                         |     700 |          150 |    150 |    1000 |
+| Potato Late blight                          |     700 |          150 |    150 |    1000 |
+| Potato healthy                              |     106 |           22 |     24 |     152 |
+| Tomato Bacterial spot                       |    1488 |          319 |    320 |    2127 |
+| Tomato Early blight                         |     700 |          150 |    150 |    1000 |
+| Tomato Late blight                          |    1330 |          285 |    286 |    1901 |
+| Tomato Leaf Mold                            |     666 |          142 |    144 |     952 |
+| Tomato Septoria leaf spot                   |    1239 |          265 |    267 |    1771 |
+| Tomato Spider mites Two spotted spider mite |    1173 |          251 |    252 |    1676 |
+| Tomato Target Spot                          |     982 |          210 |    212 |    1404 |
+| Tomato Tomato YellowLeaf Curl Virus         |    2245 |          481 |    482 |    3208 |
+| Tomato Tomato mosaic virus                  |     261 |           55 |     57 |     373 |
+| Tomato healthy                              |    1109 |          237 |    239 |    1585 |
+| TOTAL                                       |   14430 |         3087 |   3107 |   20624 |

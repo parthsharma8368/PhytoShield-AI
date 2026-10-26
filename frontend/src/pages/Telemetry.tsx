@@ -4,33 +4,19 @@ import {
   Activity, Scale, Eye
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import { CROP_FAIRNESS, EXPLANATION_AGREEMENT, HEADLINE, PATHOGEN_GROUPS, TELEMETRY_10D } from '../generated/metrics';
 
-const FAIRNESS_CROPS = [
-  { crop: 'Bell Pepper', samples: 744, acc: '100.0%', prec: '99.87%', rec: '100.0%', f1: '99.93%', parity: '1.0059', status: 'Equitable' },
-  { crop: 'Potato', samples: 647, acc: '99.23%', prec: '99.69%', rec: '99.23%', f1: '99.46%', parity: '0.9981', status: 'Equitable' },
-  { crop: 'Tomato', samples: 4812, acc: '99.44%', prec: '99.40%', rec: '99.44%', f1: '99.42%', parity: '1.0002', status: 'Equitable' },
-];
+const FAIRNESS_CROPS = CROP_FAIRNESS;
+const TEN_D_TELEMETRY = TELEMETRY_10D;
 
-const PATHOGEN_GROUPS = [
-  { group: 'Fungal Diseases', samples: 2715, acc: '99.23%', f1: '99.30%', desc: 'Early/Late Blight, Leaf Mold, Septoria Spot, Target Spot' },
-  { group: 'Bacterial Infections', samples: 939, acc: '99.57%', f1: '99.57%', desc: 'Bacterial Spot across Pepper & Tomato' },
-  { group: 'Viral Invasions', samples: 1076, acc: '99.63%', f1: '99.58%', desc: 'Tomato Yellow Leaf Curl Virus (TYLCV), Mosaic Virus' },
-  { group: 'Arthropod Damage', samples: 504, acc: '99.80%', f1: '99.51%', desc: 'Two-Spotted Spider Mite infestation' },
-  { group: 'Healthy Controls', samples: 969, acc: '99.79%', f1: '99.79%', desc: 'Zero-pathology control specimens' },
-];
+const GOOD = ['Resilient', 'Calibrated', 'Equitable', 'Concordant', 'Real-time', 'Robust', 'Negligible', 'Leaf-focused'];
+const BAD = ['Fragile', 'Vulnerable', 'Divergent', 'Overconfident', 'Uneven', 'Notable', 'Slow'];
 
-const TEN_D_TELEMETRY = [
-  { id: 'D01', name: 'Gaussian Noise Stability', score: '94.2%', status: 'Resilient', desc: 'Accuracy retention under σ = 0.15 additive Gaussian noise' },
-  { id: 'D02', name: 'Illumination Perturbation', score: '96.8%', status: 'Resilient', desc: 'Robustness against ±40% field lighting variation' },
-  { id: 'D03', name: 'Defocus & Motion Blur', score: '91.5%', status: 'Resilient', desc: 'Retention under 5×5 kernel camera defocus' },
-  { id: 'D04', name: 'FGSM Adversarial Attack', score: '10.4%', status: 'Vulnerable', desc: 'Retention under worst-case gradient sign perturbation (ε=0.03)' },
-  { id: 'D05', name: 'Calibration ECE', score: '1.17%', status: 'Calibrated', desc: 'Expected Calibration Error across 300 test specimens' },
-  { id: 'D06', name: 'Subgroup Disparate Ratio', score: '0.9923', status: 'Equitable', desc: 'Equalized odds ratio across Pepper, Potato, Tomato' },
-  { id: 'D07', name: 'Pathogen Disparity Gap', score: '0.57%', status: 'Negligible', desc: 'Maximum accuracy delta between fungal and arthropod classes' },
-  { id: 'D08', name: 'Background Invariance', score: '81.3%', status: 'Leaf-Isolated', desc: 'Invariance when non-foliar background pixels are ablated' },
-  { id: 'D09', name: 'Multi-XAI Consensus IoU', score: '72.1%', status: 'Concordant', desc: 'Spatial overlap between Grad-CAM++, IG, and SHAP' },
-  { id: 'D10', name: 'Edge Thermal & Latency', score: '20.8ms', status: 'Production', desc: 'MPS inference latency with zero thermal throttling' },
-];
+function statusTone(status: string) {
+  if (GOOD.includes(status)) return { bg: 'rgba(16, 185, 129, 0.1)', fg: '#10b981' };
+  if (BAD.includes(status)) return { bg: 'rgba(244, 63, 94, 0.1)', fg: '#f43f5e' };
+  return { bg: 'rgba(99, 102, 241, 0.1)', fg: '#6366f1' };
+}
 
 export default function TelemetryPage() {
   const [activeTab, setActiveTab] = useState<'10d' | 'fairness' | 'calibration' | 'xai_consensus'>('10d');
@@ -40,8 +26,8 @@ export default function TelemetryPage() {
       <PageHeader
         icon={<ShieldCheck size={13} />}
         eyebrow="Trust, Safety & 10D Telemetry Audit"
-        title="Trust, Safety & Telemetry Studio"
-        description="Comprehensive multi-dimensional reliability evaluation. Integrates Out-of-Distribution (OOD) rejection, Monte Carlo uncertainty bounds, ECE temperature scaling, and demographic fairness parity across plant species."
+        title="Can We Trust It?"
+        description="We stress-tested this AI against blurry photos, bad lighting, deliberate tampering, and unfair bias across different crops — covering Calibration (ECE), Fairness Parity, and Out-of-Distribution (OOD) rejection — so you know exactly when to trust a result."
       />
 
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 20px' }}>
@@ -49,8 +35,8 @@ export default function TelemetryPage() {
         <div style={{ display: 'flex', gap: 8, marginTop: 32, borderBottom: '1px solid var(--border-light)', paddingBottom: 12, overflowX: 'auto' }}>
           {[
             { id: '10d', label: '10D Telemetry Suite', icon: <Activity size={15} /> },
-            { id: 'fairness', label: 'Species & Pathogen Fairness', icon: <Scale size={15} /> },
-            { id: 'calibration', label: 'ECE Calibration & Uncertainty', icon: <Sliders size={15} /> },
+            { id: 'fairness', label: 'Fairness Parity', icon: <Scale size={15} /> },
+            { id: 'calibration', label: 'Calibration (ECE)', icon: <Sliders size={15} /> },
             { id: 'xai_consensus', label: 'Attribution Agreement (IoU)', icon: <Eye size={15} /> },
           ].map(tab => (
             <button
@@ -93,12 +79,8 @@ export default function TelemetryPage() {
                     fontWeight: 600,
                     padding: '2px 8px',
                     borderRadius: 4,
-                    background: d.status === 'Resilient' || d.status === 'Calibrated' || d.status === 'Equitable' || d.status === 'Concordant' || d.status === 'Production'
-                      ? 'rgba(16, 185, 129, 0.1)' 
-                      : d.status === 'Vulnerable' ? 'rgba(244, 63, 94, 0.1)' : 'rgba(99, 102, 241, 0.1)',
-                    color: d.status === 'Resilient' || d.status === 'Calibrated' || d.status === 'Equitable' || d.status === 'Concordant' || d.status === 'Production'
-                      ? '#10b981' 
-                      : d.status === 'Vulnerable' ? '#f43f5e' : '#6366f1'
+                    background: statusTone(d.status).bg,
+                    color: statusTone(d.status).fg,
                   }}>
                     {d.status}
                   </span>
@@ -122,10 +104,10 @@ export default function TelemetryPage() {
           <div className="card-minimal" style={{ padding: 28 }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Scale size={18} color="#10b981" />
-              Crop Species Subgroup Parity (Equalized Odds)
+              Fairness Parity — Crop Species Subgroup Parity (Equalized Odds)
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 20px' }}>
-              Empirically evaluated across 6,203 real validation specimens. Disparate impact ratio is 0.9923 (legally & clinically equitable).
+              Tested on {HEADLINE.testImagesLabel} real leaf photos across different crops. The lowest-to-highest crop accuracy ratio is {HEADLINE.fairnessRatio}; the closer to 1, the more evenly the AI performs across crops.
             </p>
 
             <div style={{ overflowX: 'auto' }}>
@@ -167,10 +149,10 @@ export default function TelemetryPage() {
           {/* PATHOGEN BREAKDOWN */}
           <div className="card-minimal" style={{ padding: 28 }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 4px' }}>
-              Pathogen Etiology Group Breakdown
+              Accuracy by Disease Type
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 20px' }}>
-              Evaluation across distinct biological disease agents to ensure no single pathogen family exhibits elevated false negatives.
+              We checked that the AI doesn't miss certain types of disease more than others — fungal, bacterial, viral, or pest damage.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
@@ -200,24 +182,24 @@ export default function TelemetryPage() {
               Expected Calibration Error (ECE)
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 20px' }}>
-              Measured across 300 test leaf specimens to verify predicted softmax probabilities match real empirical odds.
+              Measured on all {HEADLINE.testImagesLabel} test photos to check that the AI's stated confidence matches how often it is really right.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ padding: 14, borderRadius: 8, background: 'var(--bg-subtle)', border: '1px solid var(--border-light)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Expected Calibration Error (ECE)</span>
-                  <span style={{ fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>0.0117 (1.17%)</span>
+                  <span style={{ fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>{HEADLINE.eceValue} ({HEADLINE.ece})</span>
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                  Threshold &lt; 0.05 indicates medical-grade calibration with minimal overconfidence.
+                  Below 0.05 means the confidence the AI states is close to how often it is really right.
                 </div>
               </div>
 
               <div style={{ padding: 14, borderRadius: 8, background: 'var(--bg-subtle)', border: '1px solid var(--border-light)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Brier Probability Score</span>
-                  <span style={{ fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>0.0127</span>
+                  <span style={{ fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>{HEADLINE.brier}</span>
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
                   Mean squared difference between predicted probabilities and actual one-hot outcomes.
@@ -227,7 +209,7 @@ export default function TelemetryPage() {
               <div style={{ padding: 14, borderRadius: 8, background: 'var(--bg-subtle)', border: '1px solid var(--border-light)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>Maximum Calibration Error (MCE)</span>
-                  <span style={{ fontWeight: 700, color: 'var(--text-main)', fontFamily: 'monospace' }}>0.4929</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-main)', fontFamily: 'monospace' }}>{HEADLINE.mce}</span>
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
                   Maximum bin divergence observed in lowest-confidence quartile.
@@ -270,19 +252,15 @@ export default function TelemetryPage() {
           <div className="card-minimal" style={{ padding: 28 }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Eye size={18} color="#10b981" />
-              Cross-Method Attribution Intersection-over-Union (IoU)
+              Attribution Agreement — Cross-Method Intersection-over-Union (IoU)
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 24px' }}>
-              Spatial overlap across 3 distinct explainability paradigms (Activation-based, Path-Integral, and Game-Theoretic).
+              We compare where 3 different explanation methods point to on the same leaf. High overlap is a good sign
+              they're all picking up on the real disease, not something irrelevant.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-              {[
-                { pair: 'Grad-CAM++ vs Integrated Gradients', iou: '74.2%', desc: 'Activation weighting vs axiomatic path gradient integral' },
-                { pair: 'Grad-CAM++ vs SHAP (Occlusion)', iou: '69.8%', desc: 'Activation maps vs cooperative game Shapley values' },
-                { pair: 'Integrated Gradients vs SHAP', iou: '72.4%', desc: 'Axiomatic baseline path vs game-theoretic feature attribution' },
-                { pair: 'Mean Consensus Spatial IoU', iou: '72.1%', desc: 'High diagnostic consensus across all 3 mathematical formalisms' },
-              ].map(item => (
+              {EXPLANATION_AGREEMENT.map(item => (
                 <div key={item.pair} style={{ padding: 20, borderRadius: 10, background: 'var(--bg-subtle)', border: '1px solid var(--border-light)' }}>
                   <div style={{ fontSize: '1.6rem', fontWeight: 700, color: '#10b981', fontFamily: 'monospace', marginBottom: 4 }}>
                     {item.iou}

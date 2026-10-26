@@ -1,0 +1,12 @@
+{
+  "legacy_split_sizes": {
+    "train": 28887,
+    "val": 6186,
+    "test": 6203
+  },
+  "clean_split_sizes": {
+    "train": 14430,
+    "val": 3087,
+    "test": 3107
+  }
+}

@@ -2,32 +2,32 @@
   "subgroup_fairness": {
     "crop_species_fairness": {
       "Pepper": {
-        "samples": 744,
+        "samples": 374,
         "classes": [
           "Pepper__bell___Bacterial_spot",
           "Pepper__bell___healthy"
         ],
-        "accuracy": 100.0,
-        "precision": 99.87,
-        "recall": 100.0,
-        "f1_score": 99.93,
-        "parity_ratio": 1.0059
+        "accuracy": 99.73,
+        "precision": 98.94,
+        "recall": 99.73,
+        "f1_score": 99.33,
+        "parity_ratio": 1.0163
       },
       "Potato": {
-        "samples": 647,
+        "samples": 324,
         "classes": [
           "Potato___Early_blight",
           "Potato___Late_blight",
           "Potato___healthy"
         ],
-        "accuracy": 99.23,
-        "precision": 99.69,
-        "recall": 99.23,
-        "f1_score": 99.46,
-        "parity_ratio": 0.9981
+        "accuracy": 98.46,
+        "precision": 98.8,
+        "recall": 98.46,
+        "f1_score": 98.62,
+        "parity_ratio": 1.0033
       },
       "Tomato": {
-        "samples": 4812,
+        "samples": 2409,
         "classes": [
           "Tomato_Bacterial_spot",
           "Tomato_Early_blight",
@@ -40,16 +40,16 @@
           "Tomato__Tomato_mosaic_virus",
           "Tomato_healthy"
         ],
-        "accuracy": 99.44,
-        "precision": 99.4,
-        "recall": 99.44,
-        "f1_score": 99.42,
-        "parity_ratio": 1.0002
+        "accuracy": 97.84,
+        "precision": 97.94,
+        "recall": 97.84,
+        "f1_score": 97.88,
+        "parity_ratio": 0.997
       }
     },
     "pathogen_type_fairness": {
       "Fungal Diseases": {
-        "samples": 2715,
+        "samples": 1359,
         "classes": [
           "Potato___Early_blight",
           "Potato___Late_blight",
@@ -59,71 +59,71 @@
           "Tomato_Septoria_leaf_spot",
           "Tomato__Target_Spot"
         ],
-        "accuracy": 99.23,
-        "f1_score": 99.3
+        "accuracy": 96.84,
+        "f1_score": 97.27
       },
       "Bacterial Infections": {
-        "samples": 939,
+        "samples": 471,
         "classes": [
           "Pepper__bell___Bacterial_spot",
           "Tomato_Bacterial_spot"
         ],
-        "accuracy": 99.57,
-        "f1_score": 99.57
+        "accuracy": 98.09,
+        "f1_score": 98.61
       },
       "Viral Invasions": {
-        "samples": 1076,
+        "samples": 539,
         "classes": [
           "Tomato__Tomato_YellowLeaf__Curl_Virus",
           "Tomato__Tomato_mosaic_virus"
         ],
-        "accuracy": 99.63,
-        "f1_score": 99.58
+        "accuracy": 99.07,
+        "f1_score": 99.26
       },
       "Arthropod Infestations": {
-        "samples": 504,
+        "samples": 252,
         "classes": [
           "Tomato_Spider_mites_Two_spotted_spider_mite"
         ],
-        "accuracy": 99.8,
-        "f1_score": 99.51
+        "accuracy": 99.6,
+        "f1_score": 97.48
       },
       "Healthy Controls": {
-        "samples": 969,
+        "samples": 486,
         "classes": [
           "Pepper__bell___healthy",
           "Potato___healthy",
           "Tomato_healthy"
         ],
-        "accuracy": 99.79,
-        "f1_score": 99.79
+        "accuracy": 100.0,
+        "f1_score": 99.19
       }
     },
-    "disparate_impact_ratio": 0.9923,
-    "equalized_odds_gap": 0.0077,
-    "fairness_verdict": "Verified Equitable \u2014 Disparate impact ratio is 0.9923 across 18609 real test samples."
+    "disparate_impact_ratio": 0.981,
+    "equalized_odds_gap": 0.0189,
+    "fairness_verdict": "Verified Equitable \u2014 Disparate impact ratio is 0.9810 across 3107 real test samples."
   },
   "calibration": {
-    "expected_calibration_error_ece": 0.0117,
-    "maximum_calibration_error_mce": 0.4929,
-    "brier_score": 0.0127,
+    "expected_calibration_error_ece": 0.0268,
+    "maximum_calibration_error_mce": 0.772,
+    "brier_score": 0.0302,
     "samples_evaluated": 300,
-    "calibration_verdict": "Well-Calibrated (ECE = 1.17%): Real confidence scores reliably correlate with empirical likelihood."
+    "calibration_verdict": "Well-Calibrated (ECE = 2.68%): Real confidence scores reliably correlate with empirical likelihood."
   },
   "spurious_features": {
     "test_method": "Foreground-Background Counter-Ablation (Excess Green Index)",
     "samples_evaluated": 300,
-    "background_invariance_score": 0.8133,
-    "spurious_correlation_risk": "18.7%",
-    "verdict": "Empirically tested: 81.3% prediction invariance when non-leaf backgrounds are completely masked."
+    "background_invariance_score": 0.7833,
+    "spurious_correlation_risk": "21.7%",
+    "verdict": "Empirically tested: 78.3% prediction invariance when non-leaf backgrounds are completely masked."
   },
   "adversarial_robustness": {
     "attack_method": "Fast Gradient Sign Method (FGSM, \u03b5=0.03)",
     "samples_evaluated": 300,
-    "clean_accuracy": 99.33,
-    "adversarial_accuracy": 10.33,
-    "accuracy_retention_rate": 10.4,
-    "verdict": "Empirically tested across 300 images: 10.3% accuracy retained under worst-case gradient perturbation."
+    "clean_accuracy": 98.67,
+    "adversarial_accuracy": 13.33,
+    "accuracy_retention_rate": 13.51,
+    "verdict": "Empirically tested across 300 images: 13.3% accuracy retained under worst-case gradient perturbation."
   },
   "explanation_disagreement": {
     "gradcam_vs_ig_iou": 0.742,

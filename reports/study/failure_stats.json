@@ -1,0 +1,22 @@
+{
+  "gradcam_pp_localization": {
+    "correct_mean": 0.7966392491467577,
+    "failure_mean": 0.7984948275862069,
+    "mann_whitney_p": 0.5943455352661636
+  },
+  "gradcam_pp_sparsity": {
+    "correct_mean": 0.3456443686006826,
+    "failure_mean": 0.3688379310344828,
+    "mann_whitney_p": 0.0027968866710180733
+  },
+  "mc_std": {
+    "correct_mean": 0.011174887951155824,
+    "failure_mean": 0.09442875702496101,
+    "mann_whitney_p": 4.188130816434942e-33
+  },
+  "confidence": {
+    "correct_mean": 0.9716776232908655,
+    "failure_mean": 0.650106312899754,
+    "mann_whitney_p": 7.377767321725692e-34
+  }
+}

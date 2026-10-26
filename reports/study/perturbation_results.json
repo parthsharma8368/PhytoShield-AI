@@ -1,0 +1,62 @@
+{
+  "n_accuracy": 3107,
+  "n_stability": 105,
+  "scenarios": {
+    "clean": {
+      "accuracy": 98.13324750563244,
+      "mean_confidence": 0.965674682832969,
+      "explanation_spearman": 1.0,
+      "explanation_top20_iou": 1.0,
+      "prediction_flip_rate": 0.0
+    },
+    "gaussian_noise_0.10": {
+      "accuracy": 24.943675571290633,
+      "mean_confidence": 0.37093289731244855,
+      "explanation_spearman": 0.6231054570092591,
+      "explanation_top20_iou": 0.3578502586457008,
+      "prediction_flip_rate": 80.95238095238095
+    },
+    "gaussian_blur_r3": {
+      "accuracy": 16.511103958802703,
+      "mean_confidence": 0.8606898853076321,
+      "explanation_spearman": 0.7215408193004361,
+      "explanation_top20_iou": 0.43709281603509065,
+      "prediction_flip_rate": 91.42857142857143
+    },
+    "brightness_x0.5": {
+      "accuracy": 96.07338268426135,
+      "mean_confidence": 0.9336305822749057,
+      "explanation_spearman": 0.9651317583930713,
+      "explanation_top20_iou": 0.8245831173938571,
+      "prediction_flip_rate": 4.761904761904762
+    },
+    "brightness_x1.5": {
+      "accuracy": 94.04570325072417,
+      "mean_confidence": 0.9288425857580702,
+      "explanation_spearman": 0.9472293240608792,
+      "explanation_top20_iou": 0.8245915213869334,
+      "prediction_flip_rate": 6.666666666666667
+    },
+    "jpeg_q15": {
+      "accuracy": 87.80173801094303,
+      "mean_confidence": 0.8382663385235768,
+      "explanation_spearman": 0.9388665106216583,
+      "explanation_top20_iou": 0.7857454681341934,
+      "prediction_flip_rate": 9.523809523809524
+    },
+    "occlusion_25pct": {
+      "accuracy": 86.9327325394271,
+      "mean_confidence": 0.8041329983685382,
+      "explanation_spearman": 0.7366526321952639,
+      "explanation_top20_iou": 0.28313038241580635,
+      "prediction_flip_rate": 17.142857142857142
+    },
+    "background_removed": {
+      "accuracy": 74.8310267138719,
+      "mean_confidence": 0.8015480520959678,
+      "explanation_spearman": 0.915665836899529,
+      "explanation_top20_iou": 0.743769928773465,
+      "prediction_flip_rate": 25.714285714285715
+    }
+  }
+}

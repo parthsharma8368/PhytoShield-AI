@@ -173,6 +173,49 @@
   background: radial-gradient(ellipse at 50% 0%, rgba(16, 185, 129, 0.06) 0%, transparent 75%);
 }
 
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.35;
+  will-change: transform;
+}
+
+.ambient-orb-a {
+  top: -10%;
+  left: 8%;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.16) 0%, transparent 70%);
+  animation: orb-drift-a 26s ease-in-out infinite;
+}
+
+.ambient-orb-b {
+  top: 30%;
+  right: 4%;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.13) 0%, transparent 70%);
+  animation: orb-drift-b 32s ease-in-out infinite;
+}
+
+[data-theme="dark"] .ambient-orb-a { opacity: 0.5; }
+[data-theme="dark"] .ambient-orb-b { opacity: 0.45; }
+
+@keyframes orb-drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(60px, 40px) scale(1.08); }
+}
+
+@keyframes orb-drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-50px, 30px) scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-orb { animation: none; }
+}
+
 /* ════════════════════════════════════════════════
    RESET & BASE
    ════════════════════════════════════════════════ */
@@ -392,6 +435,16 @@ a { text-decoration: none; color: inherit; }
 }
 .api-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .api-status-badge.on .api-dot { animation: pulse 2s infinite; }
+
+.live-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  margin-right: 6px;
+  animation: pulse 2s infinite;
+}
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -1060,8 +1113,35 @@ a { text-decoration: none; color: inherit; }
 /* ════════════════════════════════════════════════
    PRINT
    ════════════════════════════════════════════════ */
+@page { size: A4; margin: 14mm; }
+.print-report { display: none; }
 @media print {
-  .nav, .btn-upload-leaf, .btn-try, .btn-demo, .btn-theme-toggle { display: none !important; }
+  /* Print only the written report: hide the nav, footer, ambient background and the on-screen workspace. */
+  #root > div > *:not(main), .analyze-page > .ctr { display: none !important; }
+  html, body, .page { background: #fff !important; color: #111 !important; min-height: 0 !important; }
+  main { position: static !important; }
+  .print-report { display: block; font: 11pt/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111; }
+  .print-report h1 { font-size: 20pt; margin: 0 0 4pt; }
+  .print-report h2 { font-size: 13pt; margin: 14pt 0 6pt; border-bottom: 1.5pt solid #0a7; padding-bottom: 2pt; }
+  .print-report h3 { font-size: 11pt; margin: 8pt 0 3pt; }
+  .print-report .pr-meta { color: #555; font-size: 9pt; margin: 0 0 6pt; }
+  .print-report .pr-section { break-inside: avoid-page; }
+  .print-report table { border-collapse: collapse; width: 100%; margin: 4pt 0; }
+  .print-report th, .print-report td { border: 0.5pt solid #bbb; padding: 3pt 6pt; text-align: left; vertical-align: top; }
+  .print-report th { background: #f1f5f4; width: 38%; font-weight: 600; }
+  .print-report ul { margin: 3pt 0 3pt 14pt; padding: 0; }
+  .print-report li { margin: 1.5pt 0; }
+  .print-report .pr-checks { list-style: none; margin-left: 0; }
+  .print-report .pr-row { display: flex; gap: 10pt; align-items: flex-start; }
+  .print-report .pr-grow { flex: 1; }
+  .print-report .pr-big { font-size: 16pt; font-weight: 700; margin: 0 0 6pt; }
+  .print-report figure { margin: 0; break-inside: avoid; }
+  .print-report figcaption { font-size: 8.5pt; color: #444; text-align: center; margin-top: 2pt; }
+  .print-report .pr-row img { width: 120pt; height: 120pt; object-fit: cover; border: 0.5pt solid #bbb; }
+  .print-report .pr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8pt; }
+  .print-report .pr-grid img { width: 100%; border: 0.5pt solid #bbb; }
+  .print-report .pr-note { margin-top: 14pt; font-size: 9pt; color: #444; border-top: 0.5pt solid #bbb; padding-top: 6pt; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; animation: none !important; transition: none !important; }
 }
 
 /* ════════════════════════════════════════════════

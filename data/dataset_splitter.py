@@ -4,6 +4,7 @@ Auto-detects dataset location and class names, performs 70% Train, 15% Val, 15% 
 stratified split, and saves class_names.json inside models/ and manifests in data/.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -46,8 +47,30 @@ def discover_classes(dataset_dir: Path) -> dict[str, list[Path]]:
     if not class_map:
         raise ValueError(f"No valid image files found in '{dataset_dir}'.")
 
+    class_map = deduplicate_by_content(class_map)
     logger.info("Auto-detected %d distinct plant disease classes.", len(class_map))
     return class_map
+
+
+def deduplicate_by_content(class_map: dict[str, list[Path]]) -> dict[str, list[Path]]:
+    """Drops byte-identical images so no image can land in two different splits.
+
+    The raw PlantVillage download ships a nested duplicate copy of every class folder;
+    without this step the same photo ends up in both train and test (data leakage).
+    The path with the fewest directory levels is kept for each unique image.
+    """
+    seen: dict[str, Path] = {}
+    for class_name in sorted(class_map):
+        for path in sorted(class_map[class_name], key=lambda p: (len(p.parts), str(p))):
+            digest = hashlib.md5(path.read_bytes()).hexdigest()
+            if digest not in seen:
+                seen[digest] = path
+
+    kept = set(seen.values())
+    deduped = {c: [p for p in paths if p in kept] for c, paths in class_map.items()}
+    removed = sum(len(v) for v in class_map.values()) - len(kept)
+    logger.info("Removed %d byte-identical duplicate images (%d unique remain).", removed, len(kept))
+    return {c: v for c, v in deduped.items() if v}
 
 
 def perform_stratified_split(

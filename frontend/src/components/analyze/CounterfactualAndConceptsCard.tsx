@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { Target, Layers, Gauge } from 'lucide-react';
 import type { CounterfactualData, BotanicalConceptsResponse, UncertaintyData } from './types';
 
@@ -32,14 +33,14 @@ export default function CounterfactualAndConceptsCard({
           onClick={() => setSubTab('counterfactual')}
         >
           <Target size={15} />
-          <span>Counterfactual Lesion Perturbation</span>
+          <span>What If It Wasn't There?</span>
         </button>
         <button
           className={`neo-cf-nav-btn ${subTab === 'concepts' ? 'active' : ''}`}
           onClick={() => setSubTab('concepts')}
         >
           <Layers size={15} />
-          <span>Botanical Concepts (CBM)</span>
+          <span>Symptoms It Detected</span>
         </button>
         <button
           className={`neo-cf-nav-btn ${subTab === 'uncertainty' ? 'active' : ''}`}
@@ -55,7 +56,7 @@ export default function CounterfactualAndConceptsCard({
           <div>
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: 4 }}>
-                Causal Verification via In-painted Foliar Neutralization
+                Testing Cause and Effect
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
                 {counterfactual.narrative_explanation}
@@ -66,21 +67,21 @@ export default function CounterfactualAndConceptsCard({
               <div className="neo-cf-img-card">
                 <img src={previewSrc || ''} alt="Original Specimen" />
                 <div className="neo-cf-img-label">
-                  Original Specimen ({origConf.toFixed(1)}% Conf)
+                  Original Photo ({origConf.toFixed(1)}% sure)
                 </div>
               </div>
 
               <div className="neo-cf-img-card">
                 <img src={counterfactual.difference_map_b64} alt="Difference Mask" />
                 <div className="neo-cf-img-label">
-                  Causal Lesion Perturbation Mask
+                  What Changed
                 </div>
               </div>
 
               <div className="neo-cf-img-card">
                 <img src={counterfactual.counterfactual_image_b64} alt="Neutralized Leaf" />
                 <div className="neo-cf-img-label">
-                  Lesion-Neutralized Leaf ({cfConf.toFixed(1)}% Conf)
+                  With Disease Spots Erased ({cfConf.toFixed(1)}% sure)
                 </div>
               </div>
             </div>
@@ -98,7 +99,7 @@ export default function CounterfactualAndConceptsCard({
             }}>
               <div>
                 <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                  Causal Confidence Shift (ΔP):
+                  Confidence Dropped By:
                 </span>
                 <span style={{ fontSize: '1rem', fontWeight: 800, color: confDrop >= 0 ? '#ef4444' : '#10b981', marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>
                   {confDrop >= 0 ? '-' : '+'}{Math.abs(confDrop).toFixed(1)}%
@@ -106,10 +107,10 @@ export default function CounterfactualAndConceptsCard({
               </div>
               <div>
                 <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                  Lesion Infiltration Extent:
+                  Disease Covers:
                 </span>
                 <span style={{ fontSize: '1rem', fontWeight: 800, color: '#00b87c', marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>
-                  {lesionPct.toFixed(1)}% of Foliage (Target: {counterfactual.counterfactual_predicted_class})
+                  {lesionPct.toFixed(1)}% of the leaf
                 </span>
               </div>
             </div>
@@ -120,17 +121,23 @@ export default function CounterfactualAndConceptsCard({
           <div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: 4 }}>
-                Botanical Concept Bottleneck Model (CBM)
+                Symptoms the AI Detected
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
                 {concepts?.botanical_reasoning_summary}
               </p>
             </div>
 
-            {(concepts?.concepts || []).map(c => {
+            {(concepts?.concepts || []).map((c, i) => {
               const scoreVal = typeof c.score === 'number' ? Math.min(100, Math.max(0, c.score)) : 0;
               return (
-                <div key={c.concept_id || c.name} className="neo-concept-item">
+                <motion.div
+                  key={c.concept_id || c.name}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: i * 0.06 }}
+                  className="neo-concept-item"
+                >
                   <div className="neo-concept-head">
                     <span className="neo-concept-title">
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#00b87c' }} />
@@ -139,10 +146,12 @@ export default function CounterfactualAndConceptsCard({
                     <span className="neo-concept-score">{scoreVal.toFixed(1)}%</span>
                   </div>
                   <div className="neo-bar-track" style={{ height: 6 }}>
-                    <div
+                    <motion.div
                       className="neo-bar-fill"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${scoreVal}%` }}
+                      transition={{ duration: 0.7, delay: 0.1 + i * 0.06, ease: [0.16, 1, 0.3, 1] }}
                       style={{
-                        width: `${scoreVal}%`,
                         background: c.name.includes('Healthy') ? '#10b981' : c.name.includes('Necrosis') ? '#8b5cf6' : '#f59e0b',
                       }}
                     />
@@ -151,7 +160,7 @@ export default function CounterfactualAndConceptsCard({
                     <span className="neo-concept-desc">{c.pathology_significance || c.clinical_relevance}</span>
                     <span className="neo-concept-marker">Relevance: {c.clinical_relevance}</span>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -164,7 +173,8 @@ export default function CounterfactualAndConceptsCard({
                 Bayesian Monte Carlo Dropout Uncertainty Quantification
               </div>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-                Separates epistemic model uncertainty and prediction entropy across stochastic forward passes.
+                We ran the analysis multiple times to see how consistent the AI's answer really is,
+                not just how confident it sounds on a single try.
               </p>
             </div>
 
@@ -174,28 +184,28 @@ export default function CounterfactualAndConceptsCard({
                 <span className="neo-metric-val" style={{ color: '#00b87c' }}>
                   {metricOrDash(uncertainty.epistemic_std, 4)}
                 </span>
-                <span className="neo-metric-sub">Standard deviation across Monte Carlo passes.</span>
+                <span className="neo-metric-sub">How much the AI's confidence wavered across repeated checks. Lower is better.</span>
               </div>
               <div className="neo-metric-box">
                 <span className="neo-metric-name">Uncertainty Score</span>
                 <span className="neo-metric-val" style={{ color: '#00c4cc' }}>
                   {metricOrDash(uncertainty.uncertainty_score, 4)}
                 </span>
-                <span className="neo-metric-sub">Normalized calibration confidence deviation.</span>
+                <span className="neo-metric-sub">An overall score for how unsure the AI is. Lower is better.</span>
               </div>
               <div className="neo-metric-box">
                 <span className="neo-metric-name">Predictive Entropy</span>
                 <span className="neo-metric-val" style={{ color: '#8b5cf6' }}>
                   {metricOrDash(uncertainty.predictive_entropy, 3)}
                 </span>
-                <span className="neo-metric-sub">Shannon entropy of Monte Carlo distribution.</span>
+                <span className="neo-metric-sub">How spread out the AI's guesses were across all possible diseases.</span>
               </div>
               <div className="neo-metric-box">
-                <span className="neo-metric-name">Reliability Status</span>
+                <span className="neo-metric-name">Reliability</span>
                 <span className="neo-metric-val" style={{ color: '#10b981', fontSize: '0.95rem' }}>
                   {uncertainty.trust_tier ? uncertainty.trust_tier.toUpperCase() : '—'}
                 </span>
-                <span className="neo-metric-sub">Validated within calibration safety margin.</span>
+                <span className="neo-metric-sub">Whether this result falls within a safe, trustworthy range.</span>
               </div>
             </div>
           </div>

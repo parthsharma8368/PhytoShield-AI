@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 
-export default function ConfidenceGauge({ value }: { value: number }) {
+export default function ConfidenceGauge({ value, label = 'CONFIDENCE' }: { value: number; label?: string }) {
   const R = 43;
   const circ = 2 * Math.PI * R;
   const clamped = Math.max(0, Math.min(100, value));
@@ -46,7 +46,7 @@ export default function ConfidenceGauge({ value }: { value: number }) {
             <span className="neo-gauge-percent">%</span>
           </div>
           <span className="neo-gauge-pill">
-            CONFIDENCE
+            {label}
           </span>
         </div>
       </div>

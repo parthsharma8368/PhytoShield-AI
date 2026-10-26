@@ -1,0 +1,16 @@
+{
+  "temperature": 0.7778,
+  "fitted_on": "validation split",
+  "test_before": {
+    "nll": 0.0642,
+    "ece": 0.016,
+    "mean_confidence": 0.9657,
+    "accuracy": 0.9813
+  },
+  "test_after": {
+    "nll": 0.0563,
+    "ece": 0.0056,
+    "mean_confidence": 0.978,
+    "accuracy": 0.9813
+  }
+}

@@ -59,6 +59,56 @@ def measure_live_inference(model: nn.Module, device: torch.device) -> tuple[floa
     return round(latency_ms, 2), round(fps, 1)
 
 
+def compute_model_gflops(
+    model: nn.Module,
+    input_size: tuple[int, ...] = (1, 3, 224, 224),
+    device: torch.device = torch.device("cpu"),
+) -> float:
+    """Empirically computes theoretical GFLOPs (Multiply-Accumulate operations) for a PyTorch model.
+
+    Counts operations across all 2D convolution and linear projection layers for a standard
+    single-image input tensor via forward execution hooks.
+
+    Args:
+        model: PyTorch model instance to profile.
+        input_size: Dimension of input tensor (B, C, H, W).
+        device: Hardware execution device.
+
+    Returns:
+        float: Computational complexity in GFLOPs (10^9 operations).
+    """
+    total_macs = 0
+    hooks = []
+
+    def conv_hook(module: nn.Conv2d, inp: Any, out: torch.Tensor) -> None:
+        nonlocal total_macs
+        b, c_out, h_out, w_out = out.shape
+        k_h, k_w = module.kernel_size
+        c_in = module.in_channels // module.groups
+        total_macs += b * c_out * h_out * w_out * k_h * k_w * c_in
+
+    def linear_hook(module: nn.Linear, inp: Any, out: torch.Tensor) -> None:
+        nonlocal total_macs
+        total_macs += module.in_features * module.out_features
+
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            hooks.append(m.register_forward_hook(conv_hook))
+        elif isinstance(m, nn.Linear):
+            hooks.append(m.register_forward_hook(linear_hook))
+
+    model.eval()
+    try:
+        with torch.no_grad():
+            dummy = torch.zeros(input_size, device=device)
+            model(dummy)
+    finally:
+        for h in hooks:
+            h.remove()
+
+    return round(total_macs / 1e9, 2)
+
+
 def get_real_model_benchmarks() -> list[dict[str, Any]]:
     """Generates benchmark matrix containing strictly verified empirical data.
 
@@ -80,7 +130,6 @@ def get_real_model_benchmarks() -> list[dict[str, Any]]:
             "checkpoint_name": config.BEST_MODEL_NAME,
             "metrics_file": config.REPORTS_DIR / "evaluation_metrics.json",
             "is_production": True,
-            "gflops": 0.39,
             "xai_compatibility": "Excellent — features[8] preserves 7x7 spatial activation maps with high gradient SNR",
         },
         {
@@ -90,7 +139,6 @@ def get_real_model_benchmarks() -> list[dict[str, Any]]:
             "checkpoint_name": "mobilenet_v3_large_best.pth",
             "metrics_file": config.REPORTS_DIR / "mobilenet_v3_large_metrics.json",
             "is_production": False,
-            "gflops": 0.22,
             "xai_compatibility": "Good — fast Saliency, lower spatial depth in final convolution layers",
         },
         {
@@ -100,7 +148,6 @@ def get_real_model_benchmarks() -> list[dict[str, Any]]:
             "checkpoint_name": "resnet50_best.pth",
             "metrics_file": config.REPORTS_DIR / "resnet50_metrics.json",
             "is_production": False,
-            "gflops": 4.12,
             "xai_compatibility": "Very Good — layer4[-1] Grad-CAM maps are stable but computationally expensive",
         },
         {
@@ -110,7 +157,6 @@ def get_real_model_benchmarks() -> list[dict[str, Any]]:
             "checkpoint_name": "densenet121_best.pth",
             "metrics_file": config.REPORTS_DIR / "densenet121_metrics.json",
             "is_production": False,
-            "gflops": 2.88,
             "xai_compatibility": "Very Good — dense connections preserve multi-scale features, memory heavy",
         },
     ]
@@ -119,16 +165,18 @@ def get_real_model_benchmarks() -> list[dict[str, Any]]:
 
     for m_info in models_meta:
         m_id = m_info["id"]
-        # Instantiate architecture to compute exact parameter count and live latency
+        # Instantiate architecture to compute exact parameter count, GFLOPs, and live latency
         try:
             model = build_model(m_id, num_classes=15, pretrained=False)
             model.to(device)
             param_count = sum(p.numel() for p in model.parameters())
             params_m = round(param_count / 1e6, 2)
+            gflops = compute_model_gflops(model, device=device)
             latency_ms, fps = measure_live_inference(model, device)
         except Exception as exc:
             logger.warning("Could not profile architecture %s live: %s", m_id, exc)
             params_m = 0.0
+            gflops = 0.0
             latency_ms, fps = 0.0, 0.0
 
         ckpt_path = config.MODELS_DIR / m_info["checkpoint_name"]
@@ -164,7 +212,7 @@ def get_real_model_benchmarks() -> list[dict[str, Any]]:
             "f1_score": f1_score,
             "parameters_million": params_m,
             "model_size_mb": model_size_mb,
-            "gflops": m_info["gflops"],
+            "gflops": gflops,
             "inference_latency_ms": latency_ms,
             "throughput_fps": fps,
             "xai_compatibility": m_info["xai_compatibility"],

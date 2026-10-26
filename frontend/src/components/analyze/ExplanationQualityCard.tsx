@@ -1,4 +1,5 @@
 import { Scale } from 'lucide-react';
+import { motion } from 'motion/react';
 import type { ExplanationQualityMetrics } from './types';
 
 export default function ExplanationQualityCard({ metrics }: { metrics: ExplanationQualityMetrics }) {
@@ -6,37 +7,39 @@ export default function ExplanationQualityCard({ metrics }: { metrics: Explanati
     {
       name: 'Faithfulness',
       val: metrics.faithfulness?.faithfulness_score,
-      desc: 'Pixel Deletion/Insertion AUC. Measures if heatmaps accurately reflect true model decision features.',
+      desc: metrics.faithfulness?.random_baseline_score != null
+        ? `Does hiding the highlighted regions change the AI's answer? A random highlight scores about ${Math.round(metrics.faithfulness.random_baseline_score * 100)}%.`
+        : 'Does hiding the highlighted regions change the AI\'s answer?',
       color: '#00b87c',
     },
     {
       name: 'Stability',
       val: metrics.stability_score,
-      desc: 'Lipschitz continuity under subtle Gaussian noise. High score means explanations do not jump erratically.',
+      desc: 'Does the explanation stay consistent if the photo has slight grain or noise?',
       color: '#00c4cc',
     },
     {
       name: 'Consistency',
       val: metrics.consistency?.mean_consistency,
-      desc: 'Cross-method Spearman correlation. Evaluates agreement across Grad-CAM++, IG, SHAP, and LIME.',
+      desc: 'Do all 4 explanation methods agree on where the disease actually is?',
       color: '#8b5cf6',
     },
     {
       name: 'Robustness',
       val: metrics.robustness_score,
-      desc: 'Photometric SSIM invariance under realistic lighting and contrast shifts.',
+      desc: 'Does the explanation still hold up under different lighting conditions?',
       color: '#f59e0b',
     },
     {
       name: 'Sparsity',
       val: metrics.sparsity?.sparsity_score,
-      desc: 'Gini coefficient concentration. Highlights compact, focused lesion regions rather than diffuse noise.',
+      desc: 'Does the AI point to a few focused disease spots, rather than the whole leaf?',
       color: '#ec4899',
     },
     {
       name: 'Localization',
       val: metrics.localization_score,
-      desc: 'Pointing Game foliar energy ratio. Verifies attributions fall inside leaf boundaries.',
+      desc: 'Does the AI\'s attention actually stay on the leaf, not the background?',
       color: '#10b981',
     },
   ];
@@ -70,11 +73,17 @@ export default function ExplanationQualityCard({ metrics }: { metrics: Explanati
       </div>
 
       <div className="neo-quality-grid">
-        {items.map(it => {
+        {items.map((it, i) => {
           const hasVal = typeof it.val === 'number';
           const clampedVal = hasVal ? Math.min(1.0, Math.max(0.0, it.val as number)) : 0;
           return (
-            <div key={it.name} className="neo-metric-box">
+            <motion.div
+              key={it.name}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: i * 0.05 }}
+              className="neo-metric-box"
+            >
               <div className="neo-metric-top">
                 <span className="neo-metric-name">{it.name}</span>
                 <span className="neo-metric-val" style={{ color: hasVal ? it.color : 'var(--text-muted)' }}>
@@ -82,10 +91,16 @@ export default function ExplanationQualityCard({ metrics }: { metrics: Explanati
                 </span>
               </div>
               <div className="neo-bar-track" style={{ height: 4, margin: '4px 0' }}>
-                <div className="neo-bar-fill" style={{ width: hasVal ? `${clampedVal * 100}%` : '0%', background: it.color }} />
+                <motion.div
+                  className="neo-bar-fill"
+                  initial={{ width: 0 }}
+                  animate={{ width: hasVal ? `${clampedVal * 100}%` : '0%' }}
+                  transition={{ duration: 0.7, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ background: it.color }}
+                />
               </div>
               <span className="neo-metric-sub">{it.desc}</span>
-            </div>
+            </motion.div>
           );
         })}
       </div>

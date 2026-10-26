@@ -24,92 +24,58 @@ import torch.nn as nn
 logger = logging.getLogger("explainability.metrics")
 
 
+def deletion_insertion_curves(
+    model: nn.Module,
+    input_tensor: torch.Tensor,
+    heatmap: np.ndarray,
+    target_class_idx: int,
+    n_steps: int = 21,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Target-class probability after deleting / revealing the top-k% most important pixels (k = 0..100%).
+
+    Deleted or hidden pixels are set to 0 in normalized space (the ImageNet mean colour). Both curves run as one batch.
+    """
+    h, w = input_tensor.shape[-2:]
+    order = np.argsort(heatmap.ravel())[::-1]
+    fracs = np.linspace(0.0, 1.0, n_steps)
+    keep = np.ones((n_steps, h * w), dtype=np.float32)
+    for i, f in enumerate(fracs):
+        keep[i, order[: int(f * h * w)]] = 0.0
+    keep_t = torch.from_numpy(keep.reshape(n_steps, 1, h, w)).to(input_tensor.device)
+    batch = input_tensor.expand(n_steps, -1, -1, -1)
+    with torch.no_grad():
+        p_del = torch.softmax(model(batch * keep_t), dim=1)[:, target_class_idx].cpu().numpy()
+        p_ins = torch.softmax(model(batch * (1.0 - keep_t)), dim=1)[:, target_class_idx].cpu().numpy()
+    return fracs, p_del, p_ins
+
+
 def compute_faithfulness(
     model: nn.Module,
     input_tensor: torch.Tensor,
     heatmap: np.ndarray,
     target_class_idx: int,
-    deletion_fractions: tuple[float, ...] = (0.05, 0.10, 0.20, 0.30, 0.50),
 ) -> dict[str, float]:
-    """Computes Faithfulness via Pixel Deletion and Insertion curves.
+    """Faithfulness from full deletion and insertion curves, with a random-attribution baseline.
 
-    Faithfulness measures whether pixels identified as important by the attribution
-    map truly govern the model's prediction score.
-    - Pixel Deletion: Successively masks out top-k salient pixels with neutral grey (0.0)
-      and records the drop in target class probability. A rapid drop indicates high faithfulness.
-    - Pixel Insertion: Successively introduces top-k salient pixels onto a neutral baseline.
-
-    Args:
-        model: Trained PyTorch classification model.
-        input_tensor: Normalized image tensor of shape (1, 3, H, W).
-        heatmap: 2D attribution heatmap of shape (H, W) normalized to [0, 1].
-        target_class_idx: Target disease class index.
-        deletion_fractions: Fractions of top pixels to mask out.
-
-    Returns:
-        dict[str, float]: Deletion AUC, Insertion AUC, and overall Faithfulness score in [0, 1].
+    - Deletion AUC (lower is better): confidence left while the most important pixels are removed.
+    - Insertion AUC (higher is better): confidence reached while the most important pixels are revealed.
+    - faithfulness_score = (1 - deletion AUC + insertion AUC) / 2, in [0, 1]. A random heatmap scores about 0.5,
+      so ``random_baseline_score`` is returned next to it for comparison.
     """
     model.eval()
-    device = input_tensor.device
-    _, _, h, w = input_tensor.shape
-    total_pixels = h * w
+    fracs, p_del, p_ins = deletion_insertion_curves(model, input_tensor, heatmap, target_class_idx)
+    auc_del, auc_ins = float(np.trapezoid(p_del, fracs)), float(np.trapezoid(p_ins, fracs))
 
-    with torch.no_grad():
-        initial_prob = float(
-            torch.softmax(model(input_tensor), dim=1)[0, target_class_idx].item()
-        )
-
-    # Flatten attribution to find descending order of importance
-    flat_indices = np.argsort(heatmap.ravel())[::-1]
-
-    deletion_probs: list[float] = [initial_prob]
-    insertion_probs: list[float] = [0.0]
-
-    # Neutral baseline: zeros (approx ImageNet grey after unnormalization)
-    baseline_tensor = torch.zeros_like(input_tensor).to(device)
-
-    for frac in deletion_fractions:
-        k = int(frac * total_pixels)
-        top_k_indices = flat_indices[:k]
-
-        # 1. Deletion: mask top-k in input
-        del_tensor = input_tensor.clone()
-        mask_2d = np.ones((h, w), dtype=np.float32)
-        mask_2d.ravel()[top_k_indices] = 0.0
-        mask_tensor = torch.from_numpy(mask_2d).to(device).unsqueeze(0).unsqueeze(0)
-        del_tensor = del_tensor * mask_tensor
-
-        with torch.no_grad():
-            prob_del = float(
-                torch.softmax(model(del_tensor), dim=1)[0, target_class_idx].item()
-            )
-        deletion_probs.append(prob_del)
-
-        # 2. Insertion: insert top-k onto baseline
-        ins_tensor = baseline_tensor.clone()
-        ins_mask_2d = np.zeros((h, w), dtype=np.float32)
-        ins_mask_2d.ravel()[top_k_indices] = 1.0
-        ins_mask_tensor = torch.from_numpy(ins_mask_2d).to(device).unsqueeze(0).unsqueeze(0)
-        ins_tensor = input_tensor * ins_mask_tensor
-
-        with torch.no_grad():
-            prob_ins = float(
-                torch.softmax(model(ins_tensor), dim=1)[0, target_class_idx].item()
-            )
-        insertion_probs.append(prob_ins)
-
-    # Calculate AUCs normalized between 0 and 1
-    # For deletion: rapid drop means lower area under deletion curve -> invert for faithfulness
-    auc_del = float(np.mean(deletion_probs))
-    auc_ins = float(np.mean(insertion_probs))
-
-    # Normalized Faithfulness score: high insertion + high deletion drop (1 - auc_del)
-    faithfulness_score = max(0.0, min(1.0, (1.0 - auc_del + auc_ins) / 2.0))
+    rng = np.random.default_rng(0)
+    rand = [deletion_insertion_curves(model, input_tensor, rng.random(heatmap.shape), target_class_idx)[1:] for _ in range(3)]
+    rand_del = float(np.mean([np.trapezoid(d, fracs) for d, _ in rand]))
+    rand_ins = float(np.mean([np.trapezoid(i, fracs) for _, i in rand]))
 
     return {
         "deletion_auc": round(auc_del, 4),
         "insertion_auc": round(auc_ins, 4),
-        "faithfulness_score": round(faithfulness_score, 4),
+        "faithfulness_score": round(float(np.clip((1.0 - auc_del + auc_ins) / 2.0, 0.0, 1.0)), 4),
+        "random_baseline_score": round(float(np.clip((1.0 - rand_del + rand_ins) / 2.0, 0.0, 1.0)), 4),
     }
 
 
