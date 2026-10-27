@@ -31,7 +31,7 @@ def system_diagram() -> None:
     box(ax, 6.7, 4.6, 2.3, 1.1, "STAGE 1 · quick answer\nDisease + confidence\n+ Grad-CAM++ (~0.1 s)", "#d1fae5", GREEN, bold=True)
     box(ax, 6.7, 2.7, 2.3, 1.5, "STAGE 2 · XAI layer\nGrad-CAM · Grad-CAM++\nSaliency · SmoothGrad\nIntegrated Gradients\nSHAP · LIME", "#e0e7ff", INDIGO, bold=True)
     box(ax, 6.7, 0.5, 2.3, 1.7, "Beyond heat-maps\nCounterfactual (erase lesion)\nConcept scoring (rule-based)\nMC-dropout uncertainty\n6 explanation-quality metrics", "#fef3c7", AMBER, bold=True)
-    box(ax, 9.5, 4.6, 2.0, 1.1, "STAGE 3 · narrative\nLLM text: cause, cure,\nprevention (fallback KB)", "#fce7f3", PINK, bold=True)
+    box(ax, 9.5, 4.6, 2.0, 1.1, "STAGE 3 · narrative\nLLM text: cause, cure,\nprevention (from findings)", "#fce7f3", PINK, bold=True)
     box(ax, 9.5, 2.7, 2.0, 1.5, "Decision support\nSeverity staging (% leaf)\nTriage priorities\nChecklist", "#fef3c7", AMBER, bold=True)
     box(ax, 9.5, 0.5, 2.0, 1.7, "Trust audit\nECE · fairness · noise/blur\nFGSM · background test\nfailure analysis", GREY, INK, bold=True)
     box(ax, 11.9, 2.4, 1.0, 1.6, "Web UI\n(React)", INK, INK, bold=True, tc="white")

@@ -182,7 +182,7 @@ export default function AnalyzePage({ apiBase }: { apiBase: string }) {
         }));
       }
     }
-  }, [quick, apiBase, insight]);
+  }, [quick, report, apiBase, insight]);
 
   const analyze = async () => {
     if (!file) return;
@@ -228,7 +228,7 @@ export default function AnalyzePage({ apiBase }: { apiBase: string }) {
       setLoading(false);
       setReportLoading(false);
       if ((e as Error).name !== 'AbortError') {
-        setError(e instanceof Error ? e.message : 'Analysis failed. Please try again.');
+        setError(e instanceof TypeError ? 'Cannot reach the analysis engine on port 8001. Start it with ./start.sh, then press Run again.' : e instanceof Error ? e.message : 'Analysis failed. Please try again.');
       }
       return;
     }

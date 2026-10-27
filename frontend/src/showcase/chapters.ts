@@ -1,0 +1,40 @@
+import { SHOWCASE as S } from '../generated/showcase';
+import { sampleData, type SampleKey } from './core';
+
+type ByPhoto<T> = T | ((k: SampleKey) => T);
+export interface Chapter {
+  kicker: string; title: string; body: ByPhoto<string>;
+  chips?: ByPhoto<[string, string][]>;
+  /** Side of the screen the text card sits on. */
+  side: 'left' | 'right' | 'center' | 'bottom';
+}
+
+const fmt = (n: number) => n.toLocaleString('en-US');
+const pct = (v: number, d = 1) => `${(v * 100).toFixed(d)}%`;
+const del = S.deletionAuc;
+const bestVal = Math.max(...S.history.val_acc);
+const name = (k: SampleKey) => sampleData(k).className.replace(/__?_?/g, ' ').replace(/_/g, ' ');
+
+export const CHAPTERS: Chapter[] = [
+  { kicker: '00 · WAKE UP', title: 'A leaf, and an engine that explains itself', body: 'Scroll to watch PhytoShield AI come alive: from raw photos to a diagnosis you can inspect. Every number on these screens was measured on our own runs.', chips: [[`${S.metrics.accuracy}%`, 'test accuracy'], ['15', 'classes'], ['7', 'XAI engines']], side: 'left' },
+  { kicker: '01 · RAW DATA', title: 'Fifteen kinds of leaf', body: `We start from PlantVillage: pepper, potato and tomato leaves in ${S.classes.length} classes. Each card in the cloud stands for about ${Math.round(S.counts.files / 600)} photos.`, chips: [[fmt(S.counts.files), 'files downloaded'], [String(S.classes.length), 'classes']], side: 'right' },
+  { kicker: '02 · THE LEAK', title: 'Half of it was copies', body: 'MD5 fingerprints expose byte-identical files. The download held a second copy of every folder, so a random split would put the same photo in train and test. That inflated our first score to 99.48%.', chips: [['50.03%', 'duplicates'], [fmt(S.counts.duplicates), 'files removed'], [fmt(S.counts.unique), 'unique images']], side: 'left' },
+  { kicker: '03 · CLEAN SPLIT', title: 'Train, validate, test', body: 'Unique images are split 70 / 15 / 15, stratified by class, with a fixed seed. A test checks that no file appears in two splits.', chips: [[fmt(S.counts.train), 'train'], [fmt(S.counts.val), 'validation'], [fmt(S.counts.test), 'test']], side: 'bottom' },
+  { kicker: '04 · PREPROCESSING', title: 'Same recipe for every photo', body: 'Resize to 224 × 224, center crop, normalize with ImageNet mean and std. During training only, we flip, rotate up to 20°, zoom-crop and jitter brightness and contrast.', chips: [['224 × 224', 'input'], ['±20°', 'rotation'], ['0.2', 'jitter']], side: 'bottom' },
+  { kicker: '05 · THE NETWORK', title: 'EfficientNet-B0, block by block', body: 'Nine feature blocks turn pixels into 1,280 feature maps; a dropout layer and a 15-way linear head decide. Parameter counts per block are exact, counted from the trained model.', chips: [['4.03 M', 'parameters'], ['0.38', 'GFLOPs'], ['15.65 MB', 'on disk']], side: 'bottom' },
+  { kicker: '06 · TWO-STAGE TRAINING', title: 'Freeze, then fine-tune', body: 'Stage 1 trains only the head (5 epochs, lr 1e-4). Stage 2 unfreezes blocks 6 to 8 (lr 1e-5). The curves are the real training history.', chips: [[`${bestVal.toFixed(2)}%`, 'best validation'], ['20', 'epochs'], ['AdamW', 'optimizer']], side: 'bottom' },
+  { kicker: '07 · A PREDICTION', title: 'One photo, fifteen scores', body: k => `A test photo flows through the blocks and the 15 outputs become probabilities. Here the network picks ${name(k)} with ${pct(sampleData(k).confidence, 2)}.`, chips: k => [[pct(sampleData(k).confidence, 2), 'confidence'], ['15', 'outputs']], side: 'bottom' },
+  { kicker: '08 · HOW SURE?', title: 'Honest confidence', body: `Temperature scaling (T = ${S.metrics.temperature.toFixed(3)}) makes stated confidence match reality: calibration error ${S.metrics.eceBefore} → ${S.metrics.eceAfter}. MC-Dropout runs the head 20 times. On this hard test photo (${S.samples.hard.trueClass.replace(/__?_?/g, ' ').replace(/_/g, ' ')} labelled, predicted ${name('hard' as SampleKey)}) the answers wobble.`, chips: [[`${S.metrics.eceBefore} → ${S.metrics.eceAfter}`, 'ECE'], ['20', 'MC passes'], [`${S.samples.hard.mcEntropyBits} bits`, 'entropy, hard photo']], side: 'bottom' },
+  { kicker: '09 · THE XAI ENGINES', title: 'Seven ways to look inside', body: 'After the model decides, seven post-hoc engines show why. Same photo, same model, seven different views. Watch each one wake up.', chips: [['7', 'engines'], ['300', 'photos scored']], side: 'right' },
+  { kicker: '10 · GRAD-CAM', title: 'Where the last layer looked', body: 'Take the 7 × 7 feature maps of the last block, weight each by how much it raises the class score, and add them up. Smooth blobs where the evidence is.', chips: [[del.gradcam.toFixed(3), `deletion AUC (random ${del.random})`]], side: 'left' },
+  { kicker: '11 · GRAD-CAM++', title: 'Several lesions at once', body: 'The same idea with higher-order gradient weights, so several separate lesions can each rise as their own peak.', chips: [[del.gradcam_pp.toFixed(3), 'deletion AUC (lower is better)']], side: 'right' },
+  { kicker: '12 · SALIENCY', title: 'Every pixel votes', body: 'The gradient of the class score with respect to each pixel: which pixels change the answer if they change a little. Sharp, but noisy.', chips: [[del.saliency.toFixed(3), 'deletion AUC']], side: 'left' },
+  { kicker: '13 · SMOOTHGRAD', title: 'Cancel the noise', body: 'Add noise to the photo, compute saliency, repeat 15 times, and average. Speckle cancels while the lesion edges stay. Six of the copies are shown.', chips: [[del.smoothgrad.toFixed(3), 'deletion AUC']], side: 'right' },
+  { kicker: '14 · INTEGRATED GRADIENTS', title: 'Walk from black to the photo', body: 'Start from a blank image and move to the photo in 20 steps, adding up the gradient on the way. In our tests this was the weakest engine.', chips: [[del.ig.toFixed(3), 'deletion AUC (worse than random)']], side: 'left' },
+  { kicker: '15 · SHAP (OCCLUSION)', title: 'Hide a patch, watch the score', body: 'Cover each of 64 patches in turn and measure how far the confidence falls. The drop is that patch’s importance. These are the real drops for this photo.', chips: [[del.shap.toFixed(3), 'deletion AUC']], side: 'right' },
+  { kicker: '16 · LIME', title: 'A simple model imitates the big one', body: `Switch superpixels on and off in about 40 altered copies, record the CNN's answers, and fit a small linear model around this photo. The superpixels are the cells of the grid.`, chips: [[del.lime.toFixed(3), 'deletion AUC']], side: 'left' },
+  { kicker: '17 · SCORING THE EXPLANATIONS', title: 'Better than random?', body: 'Deletion AUC: remove the pixels an engine calls important and see how fast confidence falls. Lower is better. Grad-CAM, Grad-CAM++ and SHAP beat random; Integrated Gradients does not.', chips: [[String(del.random), 'random heatmap'], [String(del.gradcam), 'best (Grad-CAM)']], side: 'bottom' },
+  { kicker: '18 · STRESS TESTS', title: 'Fine on light, weak on noise', body: 'We changed every test image in eight ways. Brightness and compression barely matter; noise and blur are a real weakness we report openly.', chips: [[`${S.perturbation['gaussian_noise_0.10']}%`, 'with noise'], [`${S.perturbation.gaussian_blur_r3}%`, 'with blur']], side: 'bottom' },
+  { kicker: '19 · LEAF DAMAGE', title: 'Measured from colour', body: `Find the leaf, count the discoloured pixels, stage the damage. Checked on healthy leaves (median ${S.severity.healthyMedian}%) and on painted lesions of known size (error ${S.severity.mae} points).`, chips: k => [[`${sampleData(k).damagePct}%`, 'damage on this leaf'], [sampleData(k).damagePct < 10 ? 'Stage 1' : sampleData(k).damagePct <= 25 ? 'Stage 2' : 'Stage 3', sampleData(k).damagePct < 10 ? 'under 10%' : '10% or more']], side: 'bottom' },
+  { kicker: '20 · ALIVE', title: 'Ready for a live diagnosis', body: 'Everything you just saw runs in the app: a diagnosis in a fraction of a second, seven explanations, scored and written up.', chips: [[`${S.metrics.accuracy}%`, 'accuracy'], [String(S.metrics.errors), 'errors in 3,107']], side: 'bottom' },
+];

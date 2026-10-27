@@ -1,13 +1,15 @@
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Leaf, ArrowRight, Printer, Sun, Moon } from 'lucide-react';
+import { Leaf, ArrowRight, Printer, Sparkles, Sun, Moon } from 'lucide-react';
 import HomePage from './pages/Home';
 import AnalyzePage from './pages/Analyze';
 import BenchmarksPage from './pages/Benchmarks';
 import TelemetryPage from './pages/Telemetry';
 import AmbientBackground from './components/AmbientBackground';
 import { HEADLINE } from './generated/metrics';
+
+const ShowcasePage = lazy(() => import('./pages/Showcase'));
 
 const API_BASE = 'http://localhost:8001/api';
 
@@ -82,6 +84,11 @@ function Nav({
             </div>
           )}
 
+          <button className="btn-showcase" onClick={() => navigate('/showcase')} title="Watch the whole project come alive in 3D">
+            <Sparkles size={13} />
+            <span>Showcase</span>
+          </button>
+
           {/* Action Button: Clean, Sleek, Non-screaming */}
           {showPrint ? (
             <button className="btn-try btn-export-report" onClick={() => window.print()}>
@@ -148,15 +155,16 @@ function AppInner() {
         .then(d => setApiOnline(d.status === 'healthy' && d.model_loaded))
         .catch(() => setApiOnline(false));
     check();
-    const id = setInterval(check, 30000);
+    const id = setInterval(check, apiOnline ? 30000 : 4000);
     return () => clearInterval(id);
-  }, []);
+  }, [apiOnline]);
 
   const showPrint = location.pathname === '/analyze';
+  const isShowcase = location.pathname === '/showcase';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>
-      <AmbientBackground />
+      {!isShowcase && <AmbientBackground />}
       <Nav
         apiOnline={apiOnline}
         showPrint={showPrint}
@@ -178,12 +186,13 @@ function AppInner() {
               <Route path="/benchmarks"    element={<BenchmarksPage />} />
               <Route path="/model"         element={<BenchmarksPage />} />
               <Route path="/telemetry"     element={<TelemetryPage />} />
+              <Route path="/showcase"      element={<Suspense fallback={<div className="sc-fallback"><p>Loading the 3D showcase…</p></div>}><ShowcasePage /></Suspense>} />
               <Route path="*"              element={<HomePage />} />
             </Routes>
           </motion.div>
         </AnimatePresence>
       </main>
-      <Footer />
+      {!isShowcase && <Footer />}
     </div>
   );
 }

@@ -76,7 +76,19 @@ Human-expert evaluation: `reports/study/expert_packet/` contains 16 blinded case
 
 ---
 
+## 3D showcase
+
+The **Showcase** button in the nav opens `/showcase`: a scroll-driven 3D story of the whole project (raw data, the duplicate leak, the clean split, preprocessing, the EfficientNet-B0 blocks with a live signal, the real training curves, a prediction, MC-Dropout uncertainty, all seven XAI engines, the explanation scores, stress tests and leaf damage). It is built with three.js, loads lazily, and uses only measured data: textures and numbers come from `python -m experiments.export_showcase_data` (real test photos, real heatmaps, real training history).
+
 ## Run the app
+
+One command starts both servers (backend on 8001, frontend on 5174):
+
+```bash
+./start.sh
+```
+
+Or run them separately:
 
 ```bash
 # backend (http://localhost:8001, API docs at /docs)
